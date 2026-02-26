@@ -100,35 +100,6 @@ st.markdown("""
         color: #f59e0b;
     }
     
-    .summary-section {
-        background: rgba(0, 102, 255, 0.05);
-        padding: 1.2rem;
-        border-radius: 6px;
-        margin: 1rem 0;
-        border-left: 3px solid #0066ff;
-    }
-    
-    .summary-main-bullet {
-        color: #ffffff;
-        font-weight: 600;
-        font-size: 1rem;
-        margin-bottom: 0.8rem;
-        padding-bottom: 0.8rem;
-        border-bottom: 1px solid rgba(0, 102, 255, 0.3);
-    }
-    
-    .summary-sub-section {
-        margin-bottom: 1rem;
-    }
-    
-    .summary-bullet {
-        color: #b0b8c1;
-        margin-left: 1.5rem;
-        margin-bottom: 0.4rem;
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }
-    
     .category-section {
         margin-bottom: 2rem;
     }
@@ -189,16 +160,6 @@ st.markdown("""
         border: none;
         border-top: 1px solid rgba(0, 102, 255, 0.2);
         margin: 1.5rem 0;
-    }
-    
-    .debug-box {
-        background: rgba(255, 107, 107, 0.1);
-        border-left: 3px solid #ff6b6b;
-        padding: 1rem;
-        border-radius: 6px;
-        margin: 1rem 0;
-        font-size: 0.85rem;
-        color: #ff6b6b;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -366,52 +327,29 @@ def translate_to_korean_cached(text):
     except Exception as e:
         return text
 
-# ===== EXTRACT KEY POINTS FROM CONTENT =====
-def extract_key_points(content):
-    """Extract key points from article content"""
-    sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 15]
-    
-    key_points = []
-    
-    for i, sentence in enumerate(sentences[:5]):
-        if len(sentence) > 20 and sentence not in key_points:
-            key_points.append(sentence)
-            if len(key_points) >= 3:
-                break
-    
-    if len(key_points) < 1:
-        key_points.append("유럽 시장의 주요 동향 및 기술 발전을 보여주는 소식입니다.")
-    if len(key_points) < 2:
-        key_points.append("Samsung의 전략적 계획 수립에 참고할 만한 정보입니다.")
-    if len(key_points) < 3:
-        key_points.append("관련 분야 모니터링 및 추후 대응 필요합니다.")
-    
-    return key_points[:3]
-
-# ===== SUMMARY GENERATION WITH DETAILED BULLETS =====
-def generate_detailed_summary(title, content, category):
+# ===== EXTRACT KEY SENTENCES FROM CONTENT =====
+def extract_key_sentences(content):
     """
-    Generate detailed summary with:
-    - Main headline
-    - 3 detailed sub-points
+    Extract 3 key sentences from article content
+    Returns list of 3 meaningful sentences
     """
     
-    key_points = extract_key_points(content)
+    # Clean content
+    content = content.replace('\n', ' ').replace('\r', ' ')
+    content = re.sub(r'\s+', ' ', content).strip()
     
-    category_headlines = {
-        "조달 및 소재": "공급망 영향 평가",
-        "공급망 및 물류": "물류 및 유통 업데이트",
-        "EU 규제 및 준수": "규제 준수 권고",
-        "혁신 및 생태계": "혁신 및 파트너십 기회",
-        "Samsung 포트폴리오": "제품 및 시장 개발"
-    }
+    # Split into sentences
+    sentences = re.split(r'[.!?]+', content)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
     
-    return {
-        "headline": category_headlines.get(category, "전략 정보"),
-        "point1": key_points[0] if len(key_points) > 0 else "주요 내용",
-        "point2": key_points[1] if len(key_points) > 1 else "추가 정보",
-        "point3": key_points[2] if len(key_points) > 2 else "향후 대응"
-    }
+    # Get first 3 meaningful sentences
+    key_sentences = sentences[:3]
+    
+    # Ensure we have 3 sentences
+    while len(key_sentences) < 3:
+        key_sentences.append("기사 내용을 참고하세요.")
+    
+    return key_sentences[:3]
 
 # ===== MULTI-LANGUAGE SEARCH =====
 def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3, debug_info=None):
@@ -428,7 +366,6 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
         query = category_config["queries"].get(lang_code, category_config["queries"]["en"])
         
         try:
-            # Simple search without date filter first
             results = tavily_client.search(
                 query=query,
                 search_depth="advanced",
@@ -450,11 +387,9 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
                 title = res.get('title', 'No title')
                 content = res.get('content', '')
                 
-                # Only skip if URL is in history
                 if url in seen_urls or url in history["articles"]:
                     continue
                 
-                # Skip if content is too short
                 if len(content) < 50:
                     continue
                 
@@ -617,14 +552,8 @@ if run_report:
                 cat_emoji = CATEGORIES[cat_name]["emoji"]
                 
                 # Category header
-                st.markdown(f"""
-                <div class="category-section">
-                    <div class="category-header">
-                        <h2>{cat_emoji} {cat_name}</h2>
-                        <p>{len(articles)}개의 새로운 기사</p>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"### {cat_emoji} {cat_name}")
+                st.markdown(f"*{len(articles)}개의 새로운 기사*")
                 
                 # Articles in this category
                 for article in articles:
@@ -633,13 +562,9 @@ if run_report:
                     
                     article_count += 1
                     
-                    # Generate detailed summary
+                    # Extract key sentences
                     with st.spinner(f"📝 기사 {article_count} 분석 중..."):
-                        summary = generate_detailed_summary(
-                            article['title'],
-                            article['content'],
-                            cat_name
-                        )
+                        key_sentences = extract_key_sentences(article['content'])
                         
                         # Translate title to Korean
                         try:
@@ -647,47 +572,33 @@ if run_report:
                         except Exception as e:
                             title_kr = article['title']
                     
-                    # Article card
-                    st.markdown(f"""
-                    <div class="article-card">
-                        <div class="article-title">{article_count}. {title_kr}</div>
-                        <div class="article-meta">
-                            <span class="meta-badge language-badge">🌐 {article['language']}</span>
-                            <span class="meta-badge category-badge">📂 {cat_name}</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Article display
+                    st.markdown(f"#### 📰 {article_count}. {title_kr}")
+                    col_lang, col_cat = st.columns([1, 1])
+                    with col_lang:
+                        st.caption(f"🌐 {article['language']}")
+                    with col_cat:
+                        st.caption(f"📂 {cat_name}")
                     
-                    # Summary section with detailed bullets
-                    st.markdown(f"""
-                    <div class="summary-section">
-                        <div class="summary-main-bullet">□ {summary.get('headline', 'Samsung 운영에 미치는 영향')}</div>
-                        
-                        <div class="summary-sub-section">
-                            <div class="summary-bullet">- {summary.get('point1', '주요 내용')}</div>
-                            <div class="summary-bullet">· 관련 세부 정보를 검토하여 전략 반영 필요</div>
-                        </div>
-                        
-                        <div class="summary-sub-section">
-                            <div class="summary-bullet">- {summary.get('point2', '추가 정보')}</div>
-                            <div class="summary-bullet">· 조달 및 공급망 계획 수립 시 고려 사항</div>
-                        </div>
-                        
-                        <div class="summary-sub-section">
-                            <div class="summary-bullet">- {summary.get('point3', '향후 대응')}</div>
-                            <div class="summary-bullet">· 시장 변화 모니터링 및 대응 필요</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Summary with 3 key points
+                    st.markdown("**□ 기사 요약**")
+                    st.markdown(f"- {key_sentences[0]}")
+                    st.markdown(f"  · 세부사항")
                     
-                    # Read article section
+                    st.markdown(f"- {key_sentences[1]}")
+                    st.markdown(f"  · 세부사항")
+                    
+                    st.markdown(f"- {key_sentences[2]}")
+                    st.markdown(f"  · 세부사항")
+                    
+                    # Action buttons
                     col1, col2, col3 = st.columns([2, 1, 1])
                     
                     with col1:
-                        st.markdown(f"[📰 전체 기사 읽기 →]({article['url']})")
+                        st.markdown(f"[📖 전체 기사 읽기]({article['url']})")
                     
                     with col2:
-                        if st.button("✅ 읽음으로 표시", key=f"read_{article['url']}", use_container_width=True):
+                        if st.button("✅ 읽음 표시", key=f"read_{article['url']}", use_container_width=True):
                             add_to_history(
                                 article['url'],
                                 article['title'],
@@ -695,13 +606,13 @@ if run_report:
                                 cat_name,
                                 article['language']
                             )
-                            st.success("히스토리에 추가되었습니다!")
+                            st.success("히스토리에 추가!")
                     
                     with col3:
-                        if st.button("🔗 링크 복사", key=f"copy_{article['url']}", use_container_width=True):
-                            st.code(article['url'])
+                        if st.button("🔗 URL 복사", key=f"copy_{article['url']}", use_container_width=True):
+                            st.code(article['url'], language="text")
                     
-                    st.markdown("---")
+                    st.divider()
             
             # Final stats
             st.markdown("### 📊 리포트 요약")
