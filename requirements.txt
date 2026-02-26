@@ -1,7 +1,8 @@
 feedparser==6.0.10
-newspaper4k==0.10.45
-google-generativeai==0.3.0
+newspaper4k==0.10.40
+google-generativeai>=0.3.0
 streamlit==1.28.1
 python-dotenv==1.0.0
 requests==2.31.0
-</parameter>
+beautifulsoup4==4.12.2
+lxml==4.9.3
