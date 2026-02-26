@@ -6,6 +6,7 @@ import json
 import hashlib
 from collections import defaultdict
 import re
+import requests
 
 # ===== PAGE CONFIGURATION =====
 st.set_page_config(
@@ -14,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ===== CUSTOM CSS FOR BETTER DESIGN =====
+# ===== CUSTOM CSS =====
 st.markdown("""
 <style>
     :root {
@@ -24,8 +25,6 @@ st.markdown("""
         --card-bg: #1a1f2e;
         --text-primary: #ffffff;
         --text-secondary: #b0b8c1;
-        --success-color: #10b981;
-        --warning-color: #f59e0b;
     }
     
     .main {
@@ -79,16 +78,6 @@ st.markdown("""
     a {
         color: #0066ff !important;
         text-decoration: none;
-    }
-    
-    a:hover {
-        text-decoration: underline;
-    }
-    
-    hr {
-        border: none;
-        border-top: 1px solid rgba(0, 102, 255, 0.2);
-        margin: 1.5rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -185,22 +174,14 @@ CATEGORIES = {
     }
 }
 
-MAX_ARTICLE_AGE_DAYS = 7
-MAX_SEARCH_AGE_DAYS = 30
 MAX_TOTAL_ARTICLES = 10
 MAX_PER_CATEGORY = 2
-
-# ===== FILE MANAGEMENT =====
 HISTORY_FILE = "article_history.json"
 
+# ===== FILE MANAGEMENT =====
 def load_history():
-    """Load article history with metadata"""
     if not os.path.exists(HISTORY_FILE):
-        return {
-            "articles": {},
-            "content_hashes": set(),
-            "last_updated": None
-        }
+        return {"articles": {}, "content_hashes": set(), "last_updated": None}
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -210,28 +191,23 @@ def load_history():
         return {"articles": {}, "content_hashes": set(), "last_updated": None}
 
 def save_history(history):
-    """Save article history with metadata"""
     save_data = history.copy()
     save_data["content_hashes"] = list(history["content_hashes"])
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(save_data, f, ensure_ascii=False, indent=2)
 
 def get_content_hash(title, content):
-    """Generate hash of article content for deduplication"""
     text = f"{title}{content}".lower()
     text = re.sub(r'\s+', ' ', text)
     return hashlib.md5(text.encode()).hexdigest()
 
 def is_duplicate(title, content, history):
-    """Check if article is duplicate based on content hash"""
     content_hash = get_content_hash(title, content)
     return content_hash in history["content_hashes"]
 
 def add_to_history(url, title, content, category, language):
-    """Add article to history"""
     history = load_history()
     content_hash = get_content_hash(title, content)
-    
     history["articles"][url] = {
         "title": title,
         "category": category,
@@ -241,90 +217,83 @@ def add_to_history(url, title, content, category, language):
     }
     history["content_hashes"].add(content_hash)
     history["last_updated"] = datetime.now().isoformat()
-    
     save_history(history)
 
-# ===== FREE TRANSLATION USING GOOGLE TRANSLATE =====
+# ===== TRANSLATION =====
 @st.cache_data
 def translate_to_korean_cached(text):
-    """Translate text to Korean with caching"""
     try:
         from google_trans_new import google_translator
         translator = google_translator()
         result = translator.translate(text, lang_src='en', lang_tgt='ko')
         return result
-    except Exception as e:
+    except:
         return text
 
-# ===== SMART CONTENT SUMMARIZATION =====
-def smart_summarize_content(title, content):
+# ===== SMART SUMMARIZATION WITH LLM =====
+def summarize_with_groq(title, content, cohere_api_key):
     """
-    Intelligently summarize content by:
-    1. Cleaning and processing text
-    2. Finding main sentences with important information
-    3. Extracting exactly 3 meaningful summary points
+    Use Cohere API to generate proper Korean summary
+    Format: □ 제목
+            - 핵심포인트1
+            ·세부사항
+            - 핵심포인트2
+            ·세부사항
     """
-    
-    # Clean content
-    content = content.replace('\n', ' ').replace('\r', ' ')
-    content = re.sub(r'\s+', ' ', content).strip()
-    
-    # Split into sentences
-    sentences = re.split(r'(?<=[.!?])\s+', content)
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 15 and len(s.strip()) < 300]
-    
-    if not sentences:
-        return [
-            "기사 내용을 상세히 읽기 위해 전체 기사 링크를 참고하세요.",
-            "주요 정보 및 통계는 원문에서 확인할 수 있습니다.",
-            "더 자세한 내용은 출처 기사를 통해 확인하시기 바랍니다."
-        ]
-    
-    # Score sentences based on keywords
-    def score_sentence(sent):
-        score = 0
-        # Prefer sentences with numbers
-        if re.search(r'\d+', sent):
-            score += 3
-        # Prefer longer sentences with more info
-        if len(sent.split()) > 8:
-            score += 2
-        # Prefer sentences with important keywords
-        keywords = ['growth', 'increase', 'decrease', 'change', 'innovation', 'technology', 'market', 'price', 'supply', 'demand', 'new', 'launch', 'partnership', 'agreement']
-        for keyword in keywords:
-            if keyword.lower() in sent.lower():
-                score += 1
-        return score
-    
-    # Score all sentences
-    scored_sentences = [(sent, score_sentence(sent)) for sent in sentences]
-    scored_sentences = sorted(scored_sentences, key=lambda x: x[1], reverse=True)
-    
-    # Get top 3 unique sentences, maintain order from original
-    top_3 = scored_sentences[:3]
-    
-    # Sort back to original order
-    top_3_dict = {sent: idx for idx, (sent, _) in enumerate(scored_sentences[:3])}
-    final_sentences = []
-    for idx, sent in enumerate(sentences):
-        if sent in top_3_dict:
-            final_sentences.append(sent)
-        if len(final_sentences) == 3:
-            break
-    
-    # Fallback if we couldn't get 3
-    if len(final_sentences) < 3:
-        final_sentences = [sent for sent, _ in top_3[:3]]
-    
-    return final_sentences[:3]
+    try:
+        headers = {
+            "Authorization": f"Bearer {cohere_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        prompt = f"""기사 제목: {title}
+
+기사 내용: {content[:2000]}
+
+위 기사를 다음 한국어 포맷으로 요약해주세요. 기사 내용만 요약하고, 전략적 분석은 하지 마세요.
+
+포맷:
+□ [기사 제목을 한국어로 번역]1)
+- [핵심 포인트 1 (구체적인 숫자나 사실)]
+·[핵심 포인트 1의 세부 설명 (한 문장)]
+- [핵심 포인트 2 (다른 관점의 사실)]
+·[핵심 포인트 2의 세부 설명 (한 문장)]
+- [핵심 포인트 3 (영향 또는 결과)]
+·[핵심 포인트 3의 세부 설명 (한 문장)]
+
+예시:
+□ ASML, EUV 광원 출격 1,000W 돌파... 반도체 생산성 50% 향상 예고1)
+- 기존 600W 수준 EUV 광원 출력을 1,000W까지 끌어올리는 데 성공
+·액체 주석(Molten Tin) 방울 투사 속도 2배로 향상
+- 출력 강화로, 현재 시간당 220장 '30년 330장 수준으로 확대 전망
+·레이저 펄스를 이중으로 구성하여 고출력 플라즈마 생성"""
+
+        data = {
+            "prompt": prompt,
+            "max_tokens": 500,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(
+            "https://api.cohere.ai/v1/generate",
+            headers=headers,
+            json=data,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            summary = result.get('generations', [{}])[0].get('text', '').strip()
+            return summary
+        else:
+            return None
+    except:
+        return None
 
 # ===== MULTI-LANGUAGE SEARCH =====
-def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3, debug_info=None):
-    """Perform searches across multiple languages"""
-    
+def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
     all_results = []
     seen_urls = set()
-    search_attempts = []
     
     for lang_name, lang_code in LANGUAGES.items():
         if len(all_results) >= MAX_PER_CATEGORY:
@@ -340,12 +309,6 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
                 include_raw_content=True
             )
             
-            search_attempts.append({
-                "language": lang_name,
-                "query": query,
-                "results_count": len(results.get('results', []))
-            })
-            
             for res in results.get('results', []):
                 if len(all_results) >= MAX_PER_CATEGORY:
                     break
@@ -357,36 +320,22 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
                 if url in seen_urls or url in history["articles"]:
                     continue
                 
-                if len(content) < 50:
+                if len(content) < 100:
                     continue
                 
                 if is_duplicate(title, content, history):
                     continue
                 
                 seen_urls.add(url)
-                
                 all_results.append({
                     "url": url,
                     "title": title,
                     "content": content,
                     "language": lang_name,
-                    "lang_code": lang_code,
-                    "raw_content": res.get('raw_content', content)[:500]
+                    "raw_content": res.get('raw_content', content)[:1000]
                 })
-        
-        except Exception as e:
-            search_attempts.append({
-                "language": lang_name,
-                "query": query,
-                "error": str(e)
-            })
-    
-    if debug_info is not None:
-        debug_info.append({
-            "category": category_name,
-            "total_results": len(all_results),
-            "search_attempts": search_attempts
-        })
+        except:
+            pass
     
     return all_results
 
@@ -401,11 +350,8 @@ st.markdown("""
 # Sidebar
 st.sidebar.header("⚙️ 설정")
 tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
+cohere_key = st.sidebar.text_input("Cohere API Key", type="password", help="Cohere API 키 입력 (요약용)")
 
-# 디버그 모드
-debug_mode = st.sidebar.checkbox("🐛 디버그 모드", value=False)
-
-# History stats
 history = load_history()
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 히스토리 상태")
@@ -423,7 +369,7 @@ if st.sidebar.button("🗑️ 히스토리 초기화", use_container_width=True)
         os.remove(HISTORY_FILE)
     st.rerun()
 
-# ===== MAIN REPORT BUTTON =====
+# ===== MAIN BUTTON =====
 st.markdown("---")
 
 col_button1, col_button2 = st.columns([2, 1])
@@ -432,47 +378,28 @@ with col_button1:
 
 with col_button2:
     if st.button("ℹ️ 소개", use_container_width=True):
-        st.info("""
-        **Samsung 전략 조달 에이전트**
-        
-        이 자동화 시스템은 유럽 뉴스를 10개 언어로 매일 스캔하여 다음을 식별합니다:
-        • 가격 변동성 & 공급 위험
-        • 물류 중단
-        • EU 규제 업데이트
-        • 혁신 기회
-        • Samsung 포트폴리오 개발
-        """)
+        st.info("Samsung 전략 조달 에이전트 - 유럽 뉴스를 10개 언어로 스캔합니다.")
 
-# ===== RUN REPORT LOGIC =====
+# ===== RUN REPORT =====
 if run_report:
     if not tavily_key:
-        st.error("❌ 사이드바에 Tavily API 키를 입력하세요.")
+        st.error("❌ Tavily API 키를 입력하세요.")
+    elif not cohere_key:
+        st.error("❌ Cohere API 키를 입력하세요.")
     else:
         client = TavilyClient(api_key=tavily_key)
         history = load_history()
         
-        # Progress tracking
-        progress_container = st.container()
-        with progress_container:
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
         all_articles = []
         articles_by_category = {}
-        debug_info = [] if debug_mode else None
         
-        # Search all categories
         for idx, (cat_name, cat_config) in enumerate(CATEGORIES.items()):
             status_text.text(f"🔍 {cat_name} 검색 중...")
             
-            results = perform_multilingual_search(
-                cat_config, 
-                cat_name, 
-                client, 
-                history,
-                max_results=2,
-                debug_info=debug_info
-            )
+            results = perform_multilingual_search(cat_config, cat_name, client, history, max_results=2)
             
             if results:
                 articles_by_category[cat_name] = results
@@ -480,35 +407,21 @@ if run_report:
             
             progress_bar.progress((idx + 1) / len(CATEGORIES))
         
-        # Limit to max 10 articles
         all_articles = all_articles[:MAX_TOTAL_ARTICLES]
         
-        # Clear progress indicators
         progress_bar.empty()
         status_text.empty()
         
-        # Debug info
-        if debug_mode and debug_info:
-            st.markdown("### 🐛 디버그 정보")
-            for info in debug_info:
-                with st.expander(f"{info['category']} - {info['total_results']}개 기사 발견"):
-                    for attempt in info['search_attempts']:
-                        st.write(f"**{attempt['language']}**: {attempt.get('results_count', 0)} 결과")
-                        st.code(attempt['query'])
-                        if 'error' in attempt:
-                            st.error(f"Error: {attempt['error']}")
-        
-        # Summary stats
+        # Stats
         st.markdown("---")
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🔍 새 기사 발견", len(all_articles))
-        col2.metric("📂 검색된 카테고리", len(articles_by_category))
-        col3.metric("💾 총 추적된 기사", len(history["articles"]))
-        col4.metric("🌍 검색한 언어", len(LANGUAGES))
+        col1.metric("🔍 새 기사", len(all_articles))
+        col2.metric("📂 카테고리", len(articles_by_category))
+        col3.metric("💾 총 기사", len(history["articles"]))
+        col4.metric("🌍 언어", len(LANGUAGES))
         
         st.markdown("---")
         
-        # Display articles by category
         if all_articles:
             article_count = 0
             
@@ -517,29 +430,24 @@ if run_report:
                     break
                 
                 cat_emoji = CATEGORIES[cat_name]["emoji"]
-                
-                # Category header
                 st.markdown(f"### {cat_emoji} {cat_name}")
                 st.markdown(f"*{len(articles)}개의 새로운 기사*")
                 
-                # Articles in this category
                 for article in articles:
                     if article_count >= MAX_TOTAL_ARTICLES:
                         break
                     
                     article_count += 1
                     
-                    # Smart summarize content
-                    with st.spinner(f"📝 기사 {article_count} 분석 중..."):
-                        summary_points = smart_summarize_content(article['title'], article['content'])
+                    with st.spinner(f"📝 기사 {article_count} 요약 중..."):
+                        summary = summarize_with_groq(article['title'], article['content'], cohere_key)
                         
-                        # Translate title to Korean
                         try:
                             title_kr = translate_to_korean_cached(article['title'])
-                        except Exception as e:
+                        except:
                             title_kr = article['title']
                     
-                    # Article display
+                    # Display
                     st.markdown(f"#### 📰 {article_count}. {title_kr}")
                     col_lang, col_cat = st.columns([1, 1])
                     with col_lang:
@@ -547,56 +455,30 @@ if run_report:
                     with col_cat:
                         st.caption(f"📂 {cat_name}")
                     
-                    # Summary with 3 key points from article
-                    st.markdown("**□**")
-                    st.markdown(f"- {summary_points[0]}")
-                    st.markdown(f"- {summary_points[1]}")
-                    st.markdown(f"- {summary_points[2]}")
+                    # Summary
+                    if summary:
+                        st.markdown(summary)
+                    else:
+                        st.warning("요약 생성 실패")
                     
-                    # Action buttons
+                    # Buttons
                     col1, col2, col3 = st.columns([2, 1, 1])
-                    
                     with col1:
                         st.markdown(f"[📖 전체 기사 읽기]({article['url']})")
-                    
                     with col2:
-                        if st.button("✅ 읽음 표시", key=f"read_{article['url']}", use_container_width=True):
-                            add_to_history(
-                                article['url'],
-                                article['title'],
-                                article['content'],
-                                cat_name,
-                                article['language']
-                            )
-                            st.success("히스토리에 추가!")
-                    
+                        if st.button("✅ 읽음", key=f"read_{article['url']}", use_container_width=True):
+                            add_to_history(article['url'], article['title'], article['content'], cat_name, article['language'])
+                            st.success("완료!")
                     with col3:
-                        if st.button("🔗 URL 복사", key=f"copy_{article['url']}", use_container_width=True):
-                            st.code(article['url'], language="text")
+                        if st.button("🔗 링크", key=f"copy_{article['url']}", use_container_width=True):
+                            st.code(article['url'])
                     
                     st.divider()
             
-            # Final stats
-            st.markdown("### 📊 리포트 요약")
-            summary_col1, summary_col2, summary_col3 = st.columns(3)
-            
-            with summary_col1:
-                st.metric("✅ 완료", "리포트 생성 완료")
-            
-            with summary_col2:
-                st.metric("🆕 새 기사", len(all_articles))
-            
-            with summary_col3:
-                st.metric("📈 데이터베이스", len(history["articles"]))
-        
+            st.markdown("### 📊 리포트 완료")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("✅ 상태", "완료")
+            col2.metric("🆕 기사", len(all_articles))
+            col3.metric("📈 DB", len(history["articles"]))
         else:
-            st.warning("⚠️ 검색 결과가 없습니다. 몇 가지 확인사항:")
-            st.markdown("""
-            1. **Tavily API 키 확인**: API 키가 유효한지 확인하세요.
-            2. **검색 쿼리**: 더 간단한 검색어로 변경되었습니다.
-            3. **데이터 가용성**: Tavily에 해당 지역의 기사가 없을 수 있습니다.
-            4. **디버그 모드**: 사이드바에서 "디버그 모드"를 켜고 다시 시도하세요.
-            """)
-            
-            if debug_mode:
-                st.info("💡 디버그 정보는 위의 '디버그 정보' 섹션에서 확인할 수 있습니다.")
+            st.warning("검색 결과가 없습니다.")
