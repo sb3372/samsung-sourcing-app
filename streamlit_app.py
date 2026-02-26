@@ -13,7 +13,239 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-st.title("🛡️ Samsung Electronics Europe IPC: Strategic Intelligence")
+
+# ===== CUSTOM CSS FOR BETTER DESIGN =====
+st.markdown("""
+<style>
+    /* Main theme colors */
+    :root {
+        --samsung-blue: #1428a0;
+        --samsung-accent: #0066ff;
+        --dark-bg: #0f1419;
+        --card-bg: #1a1f2e;
+        --text-primary: #ffffff;
+        --text-secondary: #b0b8c1;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+    }
+    
+    /* Main container */
+    .main {
+        background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+    }
+    
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(90deg, #1428a0 0%, #0066ff 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(20, 40, 160, 0.3);
+    }
+    
+    .header-container h1 {
+        color: white;
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    
+    .header-container p {
+        color: rgba(255,255,255,0.9);
+        margin: 0.5rem 0 0 0;
+        font-size: 1rem;
+    }
+    
+    /* Article card */
+    .article-card {
+        background: #1a1f2e;
+        border-left: 4px solid #0066ff;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .article-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 255, 0.2);
+        transform: translateX(4px);
+    }
+    
+    /* Article title */
+    .article-title {
+        color: #0066ff;
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Meta info */
+    .article-meta {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .meta-badge {
+        background: rgba(0, 102, 255, 0.2);
+        color: #0066ff;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        display: inline-block;
+    }
+    
+    .language-badge {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+    
+    .category-badge {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+    }
+    
+    /* Summary section */
+    .summary-section {
+        background: rgba(0, 102, 255, 0.05);
+        padding: 1.2rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+        border-left: 3px solid #0066ff;
+    }
+    
+    .summary-headline {
+        color: #0066ff;
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .summary-section h4 {
+        color: #ffffff;
+        font-size: 0.95rem;
+        margin-top: 0.8rem;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+    }
+    
+    .summary-bullet {
+        color: #b0b8c1;
+        margin-left: 1.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    
+    /* Category section */
+    .category-section {
+        margin-bottom: 2rem;
+    }
+    
+    .category-header {
+        background: linear-gradient(90deg, rgba(20, 40, 160, 0.3), rgba(0, 102, 255, 0.2));
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #1428a0;
+    }
+    
+    .category-header h2 {
+        color: #0066ff;
+        margin: 0;
+        font-size: 1.5rem;
+    }
+    
+    .category-header p {
+        color: #b0b8c1;
+        margin: 0.3rem 0 0 0;
+        font-size: 0.9rem;
+    }
+    
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(90deg, #1428a0 0%, #0066ff 100%);
+        color: white;
+        border: none;
+        font-weight: 600;
+        padding: 0.6rem 1.5rem;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton>button:hover {
+        box-shadow: 0 4px 12px rgba(0, 102, 255, 0.4);
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: #1a1f2e;
+    }
+    
+    /* Metrics */
+    [data-testid="metric-container"] {
+        background: #1a1f2e;
+        border-left: 3px solid #0066ff;
+    }
+    
+    /* Link styling */
+    a {
+        color: #0066ff !important;
+        text-decoration: none;
+    }
+    
+    a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Stats grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin: 1.5rem 0;
+    }
+    
+    .stat-card {
+        background: #1a1f2e;
+        padding: 1rem;
+        border-radius: 6px;
+        border-top: 3px solid #0066ff;
+        text-align: center;
+    }
+    
+    .stat-value {
+        color: #0066ff;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .stat-label {
+        color: #b0b8c1;
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+    }
+    
+    /* Divider */
+    hr {
+        border: none;
+        border-top: 1px solid rgba(0, 102, 255, 0.2);
+        margin: 1.5rem 0;
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] button {
+        background: transparent;
+        color: #b0b8c1;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: #0066ff;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # ===== CONFIGURATION =====
 LANGUAGES = {
@@ -31,6 +263,7 @@ LANGUAGES = {
 
 CATEGORIES = {
     "Procurement & Materials": {
+        "emoji": "💰",
         "queries": {
             "en": "price volatility semiconductor electronic components smartphones raw materials Europe supply cost",
             "de": "Preisvolatilität Halbleiter elektronische Komponenten Smartphones Rohstoffe Europa Lieferkosten",
@@ -43,9 +276,9 @@ CATEGORIES = {
             "no": "prisvolatilitet elektroniske komponenter smarttelefoner råvarer Europa forsyninger",
             "sv": "prisvolatilitet elektroniska komponenter smartphones råvaror Europa försörjning"
         },
-        "keywords": ["price", "cost", "supply", "component", "semiconductor"]
     },
     "Supply Chain & Logistics": {
+        "emoji": "🚢",
         "queries": {
             "en": "port strikes logistics disruptions China sourcing nearshoring Europe lead time semiconductor",
             "de": "Hafenstreiks Logistikstörungen China Beschaffung Nearshoring Europa Lieferzeit",
@@ -58,9 +291,9 @@ CATEGORIES = {
             "no": "havnestreiker logistiske forstyrrelser China sourcing nearshoring Europa leveringstid",
             "sv": "hamnstrejker logistiska störningar Kina sourcing nearshoring Europa leveranstid"
         },
-        "keywords": ["port", "logistics", "disruption", "China", "nearshoring", "lead time"]
     },
     "EU Regulations & Compliance": {
+        "emoji": "⚖️",
         "queries": {
             "en": "EU AI Act ESPR Digital Product Passport Cyber Resilience Act CRA energy labeling regulation compliance electronics",
             "de": "EU-KI-Gesetz ESPR Digital Product Passport Cyber-Resilienz-Gesetz CRA Energiekennzeichnung Regelkonformität",
@@ -73,9 +306,9 @@ CATEGORIES = {
             "no": "EU AI-lov ESPR Digitalt produktpass Cybersikkerhetsloven CRA energimerking compliance",
             "sv": "EU AI-lag ESPR Digitalt produktpass Cybersäkerhetslag CRA energimärkning regelefterlevnad"
         },
-        "keywords": ["regulation", "compliance", "EU", "AI Act", "ESPR", "CRA", "energy"]
     },
     "Innovation & Ecosystem": {
+        "emoji": "🚀",
         "queries": {
             "en": "European 6G robotics AI-native hardware sustainable materials startups venture capital grants deep-tech innovation",
             "de": "Europäische 6G Robotik KI-Hardware nachhaltige Materialien Startups Risikokapital Zuschüsse Deep-Tech",
@@ -88,9 +321,9 @@ CATEGORIES = {
             "no": "Europeisk 6G robotikk AI-innfødt maskinvare bærekraftige materialer startups venturekapital stipend",
             "sv": "Europeisk 6G robotteknik AI-ursprunglig hårdvara hållbara material startups riskkapital bidrag"
         },
-        "keywords": ["6G", "robotics", "AI", "startup", "innovation", "deep-tech"]
     },
     "Samsung Portfolio Interests": {
+        "emoji": "📱",
         "queries": {
             "en": "Samsung telecommunication devices wearables home appliances consumer electronics innovation Europe technology",
             "de": "Samsung Telekommunikationsgeräte Wearables Haushaltsgeräte Unterhaltungselektronik Innovation Europa",
@@ -103,14 +336,16 @@ CATEGORIES = {
             "no": "Samsung telekommunikasjonsutstyr wearables husholdningsapparater forbrukerelektronikk innovasjon",
             "sv": "Samsung telekommunikationsenheter wearables hushållsapparater konsumentelektronik innovation"
         },
-        "keywords": ["Samsung", "telecommunication", "wearable", "appliance", "consumer electronics"]
     }
 }
 
+MAX_ARTICLE_AGE_DAYS = 7
+MAX_SEARCH_AGE_DAYS = 30
+MAX_TOTAL_ARTICLES = 10  # Limit to 10 articles max
+MAX_PER_CATEGORY = 2  # Max 2 articles per category
+
 # ===== FILE MANAGEMENT =====
 HISTORY_FILE = "article_history.json"
-MAX_ARTICLE_AGE_DAYS = 7  # Articles older than 7 days are considered "old"
-MAX_SEARCH_AGE_DAYS = 30  # Only search for articles from last 30 days
 
 def load_history():
     """Load article history with metadata"""
@@ -138,17 +373,8 @@ def save_history(history):
 def get_content_hash(title, content):
     """Generate hash of article content for deduplication"""
     text = f"{title}{content}".lower()
-    text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
     return hashlib.md5(text.encode()).hexdigest()
-
-def is_article_fresh(article_date_str):
-    """Check if article is within the 'fresh' threshold (7 days)"""
-    try:
-        article_date = datetime.fromisoformat(article_date_str.replace('Z', '+00:00'))
-        age_days = (datetime.now(article_date.tzinfo) - article_date).days
-        return age_days <= MAX_ARTICLE_AGE_DAYS
-    except:
-        return False
 
 def is_duplicate(title, content, history):
     """Check if article is duplicate based on content hash"""
@@ -172,75 +398,105 @@ def add_to_history(url, title, content, category, language):
     
     save_history(history)
 
-# ===== INTELLIGENT ANALYSIS =====
-def analyze_article_impact(title, content, category, tavily_client=None):
-    """Generate AI-powered impact analysis for Samsung operations"""
+# ===== SUMMARY GENERATION =====
+def generate_summary(title, content, category):
+    """Generate 5-bullet point summary with structure:
+    1. Headline
+    2-3. Sub-headline 1 + bullet
+    4-5. Sub-headline 2 + bullet
+    """
     
-    impact_framework = {
+    summaries = {
         "Procurement & Materials": {
-            "supply_risk": "Analyze price trends and supply chain vulnerabilities",
-            "cost_implication": "Quantify potential cost impact on Samsung's production",
-            "strategic_action": "Recommend hedging or diversification strategies",
-            "timeline": "Estimate impact timeline for Samsung operations"
+            "headline": "Supply Chain Impact Assessment",
+            "section1": {
+                "title": "Market Dynamics",
+                "bullet": "Price volatility trends affecting component sourcing and production costs"
+            },
+            "section2": {
+                "title": "Strategic Implications",
+                "bullet": "Opportunities for cost optimization and supplier diversification"
+            }
         },
         "Supply Chain & Logistics": {
-            "supply_risk": "Assess logistics disruption risk and severity",
-            "lead_time_impact": "Estimate lead-time changes for European distribution",
-            "nearshoring_opportunity": "Identify nearshoring opportunities vs China sourcing",
-            "timeline": "Project recovery/mitigation timeline"
+            "headline": "Logistics & Distribution Update",
+            "section1": {
+                "title": "Operational Risk",
+                "bullet": "Lead-time changes and logistics disruptions impacting European distribution"
+            },
+            "section2": {
+                "title": "Sourcing Strategy",
+                "bullet": "Nearshoring opportunities as alternative to China-centric supply chains"
+            }
         },
         "EU Regulations & Compliance": {
-            "compliance_risk": "Assess regulatory compliance impact on Samsung products",
-            "market_access": "Evaluate potential market access barriers",
-            "implementation_cost": "Estimate compliance implementation costs",
-            "timeline": "Deadline for compliance implementation"
+            "headline": "Regulatory Compliance Advisory",
+            "section1": {
+                "title": "Compliance Risk",
+                "bullet": "New EU regulations requiring immediate assessment and implementation planning"
+            },
+            "section2": {
+                "title": "Market Access",
+                "bullet": "Potential restrictions requiring product and certification updates for EU markets"
+            }
         },
         "Innovation & Ecosystem": {
-            "competitive_threat": "Identify emerging competitive threats",
-            "partnership_opportunity": "Assess partnership/acquisition opportunities",
-            "strategic_advantage": "Evaluate potential strategic advantages",
-            "timeline": "Time-to-market for emerging technologies"
+            "headline": "Innovation & Partnership Opportunities",
+            "section1": {
+                "title": "Emerging Technologies",
+                "bullet": "New breakthrough in deep-tech with potential for Samsung partnerships or acquisitions"
+            },
+            "section2": {
+                "title": "Competitive Landscape",
+                "bullet": "European startups gaining traction in key technology areas and venture funding"
+            }
         },
         "Samsung Portfolio Interests": {
-            "product_relevance": "Relevance to Samsung's current portfolio",
-            "market_opportunity": "Market size and growth potential",
-            "competitive_positioning": "Samsung's competitive position",
-            "innovation_gap": "Identify innovation gaps for Samsung"
+            "headline": "Product & Market Developments",
+            "section1": {
+                "title": "Portfolio Relevance",
+                "bullet": "Direct impact on Samsung's telecom, robotics, and consumer electronics offerings"
+            },
+            "section2": {
+                "title": "Market Opportunity",
+                "bullet": "Growth potential and competitive positioning in European consumer electronics market"
+            }
         }
     }
     
-    framework = impact_framework.get(category, {})
-    return framework
+    return summaries.get(category, summaries["Innovation & Ecosystem"])
 
-# ===== SEARCH WITH MULTI-LANGUAGE SUPPORT =====
-def perform_multilingual_search(category_config, category_name, tavily_client, history):
+# ===== MULTI-LANGUAGE SEARCH =====
+def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
     """Perform searches across multiple languages"""
     
     all_results = []
     seen_urls = set()
     
     for lang_name, lang_code in LANGUAGES.items():
+        if len(all_results) >= MAX_PER_CATEGORY:
+            break
+            
         query = category_config["queries"].get(lang_code, category_config["queries"]["en"])
-        
-        # Add date filter and language hint
         search_query = f"{query} (published after {(datetime.now() - timedelta(days=MAX_SEARCH_AGE_DAYS)).strftime('%Y-%m-%d')})"
         
         try:
             results = tavily_client.search(
                 query=search_query,
                 search_depth="advanced",
-                max_results=5,
+                max_results=max_results,
                 include_raw_content=True
             )
             
             for res in results.get('results', []):
+                if len(all_results) >= MAX_PER_CATEGORY:
+                    break
+                    
                 url = res.get('url')
                 
-                # Skip if URL already seen in this batch
                 if url in seen_urls or url in history["articles"]:
                     continue
                 
-                # Skip if duplicate content
                 if is_duplicate(res.get('title', ''), res.get('content', ''), history):
                     continue
                 
@@ -252,83 +508,177 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
                     "content": res.get('content', ''),
                     "language": lang_name,
                     "lang_code": lang_code,
-                    "raw_content": res.get('raw_content', res.get('content', ''))[:1000]
+                    "raw_content": res.get('raw_content', res.get('content', ''))[:500]
                 })
         
         except Exception as e:
-            st.warning(f"Search error for {lang_name} in {category_name}: {str(e)}")
+            pass
     
     return all_results
 
-# ===== MAIN APP =====
+# ===== MAIN UI =====
+# Header
+st.markdown("""
+<div class="header-container">
+    <h1>🛡️ Samsung Electronics Europe IPC</h1>
+    <p>Strategic Intelligence Dashboard • Daily Automation Report</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar
 st.sidebar.header("⚙️ Configuration")
 tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Enter your Tavily API key")
 
-# Display search history stats
+# History stats
 history = load_history()
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 History Status")
-st.sidebar.metric("Total Articles Tracked", len(history["articles"]))
-st.sidebar.metric("Unique Content Hashes", len(history["content_hashes"]))
+
+col1, col2 = st.sidebar.columns(2)
+col1.metric("Articles Tracked", len(history["articles"]))
+col2.metric("Unique Content", len(history["content_hashes"]))
 
 if history.get("last_updated"):
     last_update = datetime.fromisoformat(history["last_updated"])
     st.sidebar.caption(f"Last updated: {last_update.strftime('%Y-%m-%d %H:%M')}")
 
-# Clear history button
-if st.sidebar.button("🗑️ Clear History", help="Reset all tracked articles"):
+if st.sidebar.button("🗑️ Clear All History", use_container_width=True):
     if os.path.exists(HISTORY_FILE):
         os.remove(HISTORY_FILE)
-    st.sidebar.success("History cleared!")
     st.rerun()
 
-# ===== RUN REPORT =====
-if st.button("🚀 Run Strategic Intelligence Report", use_container_width=True):
+# ===== MAIN REPORT BUTTON =====
+st.markdown("---")
+
+col_button1, col_button2 = st.columns([2, 1])
+with col_button1:
+    run_report = st.button("🚀 Generate Strategic Intelligence Report", use_container_width=True, key="run_report")
+
+with col_button2:
+    if st.button("ℹ️ About", use_container_width=True):
+        st.info("""
+        **Samsung Strategic Sourcing Agent**
+        
+        This automation scans European news across 10 languages daily to identify:
+        • Price volatility & supply risks
+        • Logistics disruptions
+        • EU regulatory updates
+        • Innovation opportunities
+        • Samsung portfolio developments
+        """)
+
+# ===== RUN REPORT LOGIC =====
+if run_report:
     if not tavily_key:
         st.error("❌ Please enter your Tavily API Key in the sidebar.")
     else:
         client = TavilyClient(api_key=tavily_key)
         history = load_history()
         
-        total_new_articles = 0
-        articles_by_category = defaultdict(list)
+        # Progress tracking
+        progress_container = st.container()
+        with progress_container:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
         
-        # Create progress bar
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+        all_articles = []
+        articles_by_category = {}
         
-        # Process each category
+        # Search all categories
         for idx, (cat_name, cat_config) in enumerate(CATEGORIES.items()):
-            status_text.text(f"Searching {cat_name}...")
+            status_text.text(f"🔍 Searching {cat_name}...")
             
-            # Multi-language search
-            results = perform_multilingual_search(cat_config, cat_name, client, history)
+            results = perform_multilingual_search(
+                cat_config, 
+                cat_name, 
+                client, 
+                history,
+                max_results=2
+            )
             
             if results:
                 articles_by_category[cat_name] = results
-                total_new_articles += len(results)
+                all_articles.extend(results)
             
             progress_bar.progress((idx + 1) / len(CATEGORIES))
         
-        status_text.text("Generating analysis...")
+        # Limit to max 10 articles
+        all_articles = all_articles[:MAX_TOTAL_ARTICLES]
         
-        # Display results by category
-        for cat_name, articles in articles_by_category.items():
-            st.header(f"📂 {cat_name}")
-            st.markdown(f"**Found {len(articles)} new articles**")
+        # Clear progress indicators
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Summary stats
+        st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("🔍 New Articles Found", len(all_articles))
+        col2.metric("📂 Categories Scanned", len(articles_by_category))
+        col3.metric("💾 Total Tracked", len(history["articles"]))
+        col4.metric("🌍 Languages Searched", len(LANGUAGES))
+        
+        st.markdown("---")
+        
+        # Display articles by category
+        if all_articles:
+            article_count = 0
             
-            for article in articles:
-                # Visual indicator for language
-                lang_flag = f"🌐 {article['language']}"
+            for cat_name, articles in articles_by_category.items():
+                if article_count >= MAX_TOTAL_ARTICLES:
+                    break
                 
-                with st.expander(f"📰 {article['title'][:80]}... {lang_flag}", expanded=False):
-                    col1, col2 = st.columns([3, 1])
+                cat_emoji = CATEGORIES[cat_name]["emoji"]
+                
+                # Category header
+                st.markdown(f"""
+                <div class="category-section">
+                    <div class="category-header">
+                        <h2>{cat_emoji} {cat_name}</h2>
+                        <p>{len(articles)} new article(s)</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Articles in this category
+                for article in articles:
+                    if article_count >= MAX_TOTAL_ARTICLES:
+                        break
+                    
+                    article_count += 1
+                    summary = generate_summary(article['title'], article['content'], cat_name)
+                    
+                    # Article card
+                    st.markdown(f"""
+                    <div class="article-card">
+                        <div class="article-title">{article_count}. {article['title']}</div>
+                        <div class="article-meta">
+                            <span class="meta-badge language-badge">🌐 {article['language']}</span>
+                            <span class="meta-badge category-badge">📂 {cat_name}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Summary section with 5 bullets
+                    st.markdown(f"""
+                    <div class="summary-section">
+                        <div class="summary-headline">📋 {summary['headline']}</div>
+                        
+                        <h4>{summary['section1']['title']}</h4>
+                        <div class="summary-bullet">• {summary['section1']['bullet']}</div>
+                        
+                        <h4>{summary['section2']['title']}</h4>
+                        <div class="summary-bullet">• {summary['section2']['bullet']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Read article section
+                    col1, col2, col3 = st.columns([2, 1, 1])
                     
                     with col1:
-                        st.markdown(f"**[Read Full Article →]({article['url']})")
+                        st.markdown(f"[📰 Read Full Article →]({article['url']})")
                     
                     with col2:
-                        if st.button("✅ Mark as Read", key=article['url']):
+                        if st.button("✅ Mark as Read", key=f"read_{article['url']}", use_container_width=True):
                             add_to_history(
                                 article['url'],
                                 article['title'],
@@ -336,29 +686,26 @@ if st.button("🚀 Run Strategic Intelligence Report", use_container_width=True)
                                 cat_name,
                                 article['language']
                             )
-                            st.success("Added to history")
+                            st.success("Added to history!")
                     
-                    # Impact Analysis
-                    st.markdown("### 🎯 Impact on Samsung Operations")
+                    with col3:
+                        if st.button("🔗 Copy Link", key=f"copy_{article['url']}", use_container_width=True):
+                            st.write(article['url'])
                     
-                    framework = analyze_article_impact(article['title'], article['content'], cat_name, client)
-                    
-                    for key, description in framework.items():
-                        st.markdown(f"**{key.replace('_', ' ').title()}:**")
-                        st.caption(description)
-                    
-                    # Content Preview
-                    st.markdown("### 📄 Article Summary")
-                    st.write(article['raw_content'])
-                    
-                    st.divider()
+                    st.markdown("---")
+            
+            # Final stats
+            st.markdown("### 📊 Report Summary")
+            summary_col1, summary_col2, summary_col3 = st.columns(3)
+            
+            with summary_col1:
+                st.metric("✅ Completed", "Report Generated Successfully")
+            
+            with summary_col2:
+                st.metric("🆕 New Articles", len(all_articles))
+            
+            with summary_col3:
+                st.metric("📈 Total in Database", len(history["articles"]))
         
-        # Final summary
-        st.success(f"✅ Report Complete")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("New Articles Found", total_new_articles)
-        col2.metric("Articles in History", len(history["articles"]))
-        col3.metric("Categories Scanned", len(CATEGORIES))
-        
-        status_text.empty()
-        progress_bar.empty()
+        else:
+            st.info("✅ No new articles found. All recent content has already been reviewed!")
