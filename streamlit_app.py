@@ -6,6 +6,7 @@ import json
 import hashlib
 from collections import defaultdict
 import re
+from anthropic import Anthropic
 
 # ===== PAGE CONFIGURATION =====
 st.set_page_config(
@@ -233,17 +234,6 @@ st.markdown("""
         border-top: 1px solid rgba(0, 102, 255, 0.2);
         margin: 1.5rem 0;
     }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] button {
-        background: transparent;
-        color: #b0b8c1;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: #0066ff;
-        color: white;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -262,7 +252,7 @@ LANGUAGES = {
 }
 
 CATEGORIES = {
-    "Procurement & Materials": {
+    "조달 및 소재": {
         "emoji": "💰",
         "queries": {
             "en": "price volatility semiconductor electronic components smartphones raw materials Europe supply cost",
@@ -277,7 +267,7 @@ CATEGORIES = {
             "sv": "prisvolatilitet elektroniska komponenter smartphones råvaror Europa försörjning"
         },
     },
-    "Supply Chain & Logistics": {
+    "공급망 및 물류": {
         "emoji": "🚢",
         "queries": {
             "en": "port strikes logistics disruptions China sourcing nearshoring Europe lead time semiconductor",
@@ -292,12 +282,12 @@ CATEGORIES = {
             "sv": "hamnstrejker logistiska störningar Kina sourcing nearshoring Europa leveranstid"
         },
     },
-    "EU Regulations & Compliance": {
+    "EU 규제 및 준수": {
         "emoji": "⚖️",
         "queries": {
             "en": "EU AI Act ESPR Digital Product Passport Cyber Resilience Act CRA energy labeling regulation compliance electronics",
             "de": "EU-KI-Gesetz ESPR Digital Product Passport Cyber-Resilienz-Gesetz CRA Energiekennzeichnung Regelkonformität",
-            "fr": "Loi IA UE ESPR Passeport Numérique Produit Loi Résilience Cyber CRA étiquetage énergétique conformité",
+            "fr": "Loi IA UE ESPR Passeport Numérique Produit Loi Résilience Cyber CRA ��tiquetage énergétique conformité",
             "es": "Ley de IA de la UE ESPR Pasaporte Digital de Producto Ley de Resiliencia Cibernética CRA etiquetado energético",
             "it": "Legge AI UE ESPR Passaporto Digitale Prodotto Legge Resilienza Cibernetica CRA etichettatura energetica",
             "pl": "Ustawa AI UE ESPR Paszport Cyfrowy Produktu Ustawa Odporności Cybernetycznej CRA etykietowanie energetyczne",
@@ -307,7 +297,7 @@ CATEGORIES = {
             "sv": "EU AI-lag ESPR Digitalt produktpass Cybersäkerhetslag CRA energimärkning regelefterlevnad"
         },
     },
-    "Innovation & Ecosystem": {
+    "혁신 및 생태계": {
         "emoji": "🚀",
         "queries": {
             "en": "European 6G robotics AI-native hardware sustainable materials startups venture capital grants deep-tech innovation",
@@ -322,7 +312,7 @@ CATEGORIES = {
             "sv": "Europeisk 6G robotteknik AI-ursprunglig hårdvara hållbara material startups riskkapital bidrag"
         },
     },
-    "Samsung Portfolio Interests": {
+    "Samsung 포트폴리오": {
         "emoji": "📱",
         "queries": {
             "en": "Samsung telecommunication devices wearables home appliances consumer electronics innovation Europe technology",
@@ -341,8 +331,8 @@ CATEGORIES = {
 
 MAX_ARTICLE_AGE_DAYS = 7
 MAX_SEARCH_AGE_DAYS = 30
-MAX_TOTAL_ARTICLES = 10  # Limit to 10 articles max
-MAX_PER_CATEGORY = 2  # Max 2 articles per category
+MAX_TOTAL_ARTICLES = 10
+MAX_PER_CATEGORY = 2
 
 # ===== FILE MANAGEMENT =====
 HISTORY_FILE = "article_history.json"
@@ -398,73 +388,78 @@ def add_to_history(url, title, content, category, language):
     
     save_history(history)
 
-# ===== SUMMARY GENERATION =====
-def generate_summary(title, content, category):
-    """Generate 5-bullet point summary with structure:
-    1. Headline
-    2-3. Sub-headline 1 + bullet
-    4-5. Sub-headline 2 + bullet
+# ===== TRANSLATION AND SUMMARY GENERATION =====
+def translate_and_summarize(title, content, category, api_key):
     """
-    
-    summaries = {
-        "Procurement & Materials": {
-            "headline": "Supply Chain Impact Assessment",
-            "section1": {
-                "title": "Market Dynamics",
-                "bullet": "Price volatility trends affecting component sourcing and production costs"
-            },
-            "section2": {
-                "title": "Strategic Implications",
-                "bullet": "Opportunities for cost optimization and supplier diversification"
-            }
-        },
-        "Supply Chain & Logistics": {
-            "headline": "Logistics & Distribution Update",
-            "section1": {
-                "title": "Operational Risk",
-                "bullet": "Lead-time changes and logistics disruptions impacting European distribution"
-            },
-            "section2": {
-                "title": "Sourcing Strategy",
-                "bullet": "Nearshoring opportunities as alternative to China-centric supply chains"
-            }
-        },
-        "EU Regulations & Compliance": {
-            "headline": "Regulatory Compliance Advisory",
-            "section1": {
-                "title": "Compliance Risk",
-                "bullet": "New EU regulations requiring immediate assessment and implementation planning"
-            },
-            "section2": {
-                "title": "Market Access",
-                "bullet": "Potential restrictions requiring product and certification updates for EU markets"
-            }
-        },
-        "Innovation & Ecosystem": {
-            "headline": "Innovation & Partnership Opportunities",
-            "section1": {
-                "title": "Emerging Technologies",
-                "bullet": "New breakthrough in deep-tech with potential for Samsung partnerships or acquisitions"
-            },
-            "section2": {
-                "title": "Competitive Landscape",
-                "bullet": "European startups gaining traction in key technology areas and venture funding"
-            }
-        },
-        "Samsung Portfolio Interests": {
-            "headline": "Product & Market Developments",
-            "section1": {
-                "title": "Portfolio Relevance",
-                "bullet": "Direct impact on Samsung's telecom, robotics, and consumer electronics offerings"
-            },
-            "section2": {
-                "title": "Market Opportunity",
-                "bullet": "Growth potential and competitive positioning in European consumer electronics market"
-            }
-        }
+    Translate article to Korean and generate 5-bullet summary using Claude API.
+    Returns: {
+        'title_kr': Korean title,
+        'headline': 메인 헤드라인,
+        'section1_title': 소제목 1,
+        'section1_bullet': 소제목 1 설명,
+        'section2_title': 소제목 2,
+        'section2_bullet': 소제목 2 설명
     }
+    """
+    try:
+        client = Anthropic(api_key=api_key)
+        
+        prompt = f"""
+당신은 Samsung 조달 전문가입니다. 다음 기사를 한국어로 번역하고 요약해주세요.
+
+**기사 제목**: {title}
+
+**기사 내용**: {content[:1500]}
+
+**카테고리**: {category}
+
+한국어로 다음 JSON 형식으로 응답해주세요:
+{{
+  "title_kr": "한국어 제목",
+  "headline": "Samsung 운영에 미치는 영향 (한 줄 요약)",
+  "section1_title": "첫 번째 소제목 (3-4 단어)",
+  "section1_bullet": "첫 번째 상세 설명 (한 문장)",
+  "section2_title": "두 번째 소제목 (3-4 단어)",
+  "section2_bullet": "두 번째 상세 설명 (한 문장)"
+}}
+
+응답은 JSON만 제공하고 다른 텍스트는 없어야 합니다.
+"""
+        
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        response_text = message.content[0].text
+        
+        # Parse JSON from response
+        import json as json_module
+        try:
+            summary_data = json_module.loads(response_text)
+        except:
+            # Try to extract JSON if there's extra text
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                summary_data = json_module.loads(json_match.group())
+            else:
+                raise ValueError("Could not parse JSON response")
+        
+        return summary_data
     
-    return summaries.get(category, summaries["Innovation & Ecosystem"])
+    except Exception as e:
+        st.error(f"AI 번역 오류: {str(e)}")
+        return {
+            'title_kr': title,
+            'headline': '요약 생성 실패',
+            'section1_title': '섹션 1',
+            'section1_bullet': '콘텐츠를 가져올 수 없습니다.',
+            'section2_title': '섹션 2',
+            'section2_bullet': '나중에 다시 시도하세요.'
+        }
 
 # ===== MULTI-LANGUAGE SEARCH =====
 def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
@@ -520,29 +515,34 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
 # Header
 st.markdown("""
 <div class="header-container">
-    <h1>🛡️ Samsung Electronics Europe IPC</h1>
-    <p>Strategic Intelligence Dashboard • Daily Automation Report</p>
+    <h1>🛡️ Samsung 유럽 조달 센터 전략 인텔리전스</h1>
+    <p>전략 정보 대시보드 • 일일 자동화 리포트</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar
-st.sidebar.header("⚙️ Configuration")
-tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Enter your Tavily API key")
+st.sidebar.header("⚙️ 설정")
+
+col_api1, col_api2 = st.sidebar.columns(2)
+with col_api1:
+    tavily_key = st.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
+with col_api2:
+    claude_key = st.text_input("Claude API Key", type="password", help="Claude API 키 입력")
 
 # History stats
 history = load_history()
 st.sidebar.markdown("---")
-st.sidebar.subheader("📊 History Status")
+st.sidebar.subheader("📊 히스토리 상태")
 
 col1, col2 = st.sidebar.columns(2)
-col1.metric("Articles Tracked", len(history["articles"]))
-col2.metric("Unique Content", len(history["content_hashes"]))
+col1.metric("추적된 기사", len(history["articles"]))
+col2.metric("고유 콘텐츠", len(history["content_hashes"]))
 
 if history.get("last_updated"):
     last_update = datetime.fromisoformat(history["last_updated"])
-    st.sidebar.caption(f"Last updated: {last_update.strftime('%Y-%m-%d %H:%M')}")
+    st.sidebar.caption(f"마지막 업데이트: {last_update.strftime('%Y-%m-%d %H:%M')}")
 
-if st.sidebar.button("🗑️ Clear All History", use_container_width=True):
+if st.sidebar.button("🗑️ 히스토리 초기화", use_container_width=True):
     if os.path.exists(HISTORY_FILE):
         os.remove(HISTORY_FILE)
     st.rerun()
@@ -552,25 +552,27 @@ st.markdown("---")
 
 col_button1, col_button2 = st.columns([2, 1])
 with col_button1:
-    run_report = st.button("🚀 Generate Strategic Intelligence Report", use_container_width=True, key="run_report")
+    run_report = st.button("🚀 전략 인텔리전스 리포트 생성", use_container_width=True, key="run_report")
 
 with col_button2:
-    if st.button("ℹ️ About", use_container_width=True):
+    if st.button("ℹ️ 소개", use_container_width=True):
         st.info("""
-        **Samsung Strategic Sourcing Agent**
+        **Samsung 전략 조달 에이전트**
         
-        This automation scans European news across 10 languages daily to identify:
-        • Price volatility & supply risks
-        • Logistics disruptions
-        • EU regulatory updates
-        • Innovation opportunities
-        • Samsung portfolio developments
+        이 자동화 시스템은 유럽 뉴스를 10개 언어로 매일 스캔하여 다음을 식별합니다:
+        • 가격 변동성 & 공급 위험
+        • 물류 중단
+        • EU 규제 업데이트
+        • 혁신 기회
+        • Samsung 포트폴리오 개발
         """)
 
 # ===== RUN REPORT LOGIC =====
 if run_report:
     if not tavily_key:
-        st.error("❌ Please enter your Tavily API Key in the sidebar.")
+        st.error("❌ 사이드바에 Tavily API 키를 입력하세요.")
+    elif not claude_key:
+        st.error("❌ 사이드바에 Claude API 키를 입력하세요.")
     else:
         client = TavilyClient(api_key=tavily_key)
         history = load_history()
@@ -586,7 +588,7 @@ if run_report:
         
         # Search all categories
         for idx, (cat_name, cat_config) in enumerate(CATEGORIES.items()):
-            status_text.text(f"🔍 Searching {cat_name}...")
+            status_text.text(f"🔍 {cat_name} 검색 중...")
             
             results = perform_multilingual_search(
                 cat_config, 
@@ -612,10 +614,10 @@ if run_report:
         # Summary stats
         st.markdown("---")
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🔍 New Articles Found", len(all_articles))
-        col2.metric("📂 Categories Scanned", len(articles_by_category))
-        col3.metric("💾 Total Tracked", len(history["articles"]))
-        col4.metric("🌍 Languages Searched", len(LANGUAGES))
+        col1.metric("🔍 새 기사 발견", len(all_articles))
+        col2.metric("📂 검색된 카테고리", len(articles_by_category))
+        col3.metric("💾 총 추적된 기사", len(history["articles"]))
+        col4.metric("🌍 검색한 언어", len(LANGUAGES))
         
         st.markdown("---")
         
@@ -634,7 +636,7 @@ if run_report:
                 <div class="category-section">
                     <div class="category-header">
                         <h2>{cat_emoji} {cat_name}</h2>
-                        <p>{len(articles)} new article(s)</p>
+                        <p>{len(articles)}개의 새로운 기사</p>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -645,12 +647,20 @@ if run_report:
                         break
                     
                     article_count += 1
-                    summary = generate_summary(article['title'], article['content'], cat_name)
+                    
+                    # Generate summary with translation
+                    with st.spinner(f"📝 기사 {article_count} 번역 및 분석 중..."):
+                        summary = translate_and_summarize(
+                            article['title'],
+                            article['content'],
+                            cat_name,
+                            claude_key
+                        )
                     
                     # Article card
                     st.markdown(f"""
                     <div class="article-card">
-                        <div class="article-title">{article_count}. {article['title']}</div>
+                        <div class="article-title">{article_count}. {summary.get('title_kr', article['title'])}</div>
                         <div class="article-meta">
                             <span class="meta-badge language-badge">🌐 {article['language']}</span>
                             <span class="meta-badge category-badge">📂 {cat_name}</span>
@@ -658,16 +668,16 @@ if run_report:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Summary section with 5 bullets
+                    # Summary section with 5 structured bullets
                     st.markdown(f"""
                     <div class="summary-section">
-                        <div class="summary-headline">📋 {summary['headline']}</div>
+                        <div class="summary-headline">📋 {summary.get('headline', 'Samsung 운영에 미치는 영향')}</div>
                         
-                        <h4>{summary['section1']['title']}</h4>
-                        <div class="summary-bullet">• {summary['section1']['bullet']}</div>
+                        <h4>🔹 {summary.get('section1_title', '섹션 1')}</h4>
+                        <div class="summary-bullet">• {summary.get('section1_bullet', '내용')}</div>
                         
-                        <h4>{summary['section2']['title']}</h4>
-                        <div class="summary-bullet">• {summary['section2']['bullet']}</div>
+                        <h4>🔹 {summary.get('section2_title', '섹션 2')}</h4>
+                        <div class="summary-bullet">• {summary.get('section2_bullet', '내용')}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     
@@ -675,10 +685,10 @@ if run_report:
                     col1, col2, col3 = st.columns([2, 1, 1])
                     
                     with col1:
-                        st.markdown(f"[📰 Read Full Article →]({article['url']})")
+                        st.markdown(f"[📰 전체 기사 읽기 →]({article['url']})")
                     
                     with col2:
-                        if st.button("✅ Mark as Read", key=f"read_{article['url']}", use_container_width=True):
+                        if st.button("✅ 읽음으로 표시", key=f"read_{article['url']}", use_container_width=True):
                             add_to_history(
                                 article['url'],
                                 article['title'],
@@ -686,26 +696,26 @@ if run_report:
                                 cat_name,
                                 article['language']
                             )
-                            st.success("Added to history!")
+                            st.success("히스토리에 추가되었습니다!")
                     
                     with col3:
-                        if st.button("🔗 Copy Link", key=f"copy_{article['url']}", use_container_width=True):
-                            st.write(article['url'])
+                        if st.button("🔗 링크 복사", key=f"copy_{article['url']}", use_container_width=True):
+                            st.code(article['url'])
                     
                     st.markdown("---")
             
             # Final stats
-            st.markdown("### 📊 Report Summary")
+            st.markdown("### 📊 리포트 요약")
             summary_col1, summary_col2, summary_col3 = st.columns(3)
             
             with summary_col1:
-                st.metric("✅ Completed", "Report Generated Successfully")
+                st.metric("✅ 완료", "리포트 생성 완료")
             
             with summary_col2:
-                st.metric("🆕 New Articles", len(all_articles))
+                st.metric("🆕 새 기사", len(all_articles))
             
             with summary_col3:
-                st.metric("📈 Total in Database", len(history["articles"]))
+                st.metric("📈 데이터베이스", len(history["articles"]))
         
         else:
-            st.info("✅ No new articles found. All recent content has already been reviewed!")
+            st.info("✅ 새로운 기사가 없습니다. 최근 모든 콘텐츠는 이미 검토되었습니다!")
