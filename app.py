@@ -109,7 +109,8 @@ if st.session_state.articles:
     st.markdown("---")
     
     for idx, article in enumerate(st.session_state.articles):
-        with st.container(border=True):
+            for idx, article in enumerate(st.session_state.articles):
+        with st.container():  # border=True 제거
             # 헤더
             col1, col2, col3 = st.columns([1, 2, 1])
             
@@ -122,6 +123,8 @@ if st.session_state.articles:
             with col3:
                 if st.button("🔄", key=f"refresh_{idx}"):
                     st.info("재분석 기능은 추후 추가됩니다.")
+            
+            st.divider()  # 구분선 추가
             
             # 제목
             st.subheader(article["title"])
