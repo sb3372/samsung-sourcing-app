@@ -100,6 +100,7 @@ st.markdown("""
         color: #f59e0b;
     }
     
+    /* Summary section - Main bullet */
     .summary-section {
         background: rgba(0, 102, 255, 0.05);
         padding: 1.2rem;
@@ -108,27 +109,33 @@ st.markdown("""
         border-left: 3px solid #0066ff;
     }
     
-    .summary-headline {
-        color: #0066ff;
-        font-weight: 700;
-        font-size: 1.1rem;
+    .summary-main-bullet {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 1rem;
         margin-bottom: 0.8rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid rgba(0, 102, 255, 0.3);
     }
     
-    .summary-section h4 {
-        color: #ffffff;
+    .summary-sub-section {
+        margin-bottom: 1rem;
+    }
+    
+    .summary-sub-title {
+        color: #0066ff;
+        font-weight: 700;
         font-size: 0.95rem;
-        margin-top: 0.8rem;
         margin-bottom: 0.4rem;
-        font-weight: 600;
+        margin-top: 0.6rem;
     }
     
     .summary-bullet {
         color: #b0b8c1;
         margin-left: 1.5rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
         font-size: 0.9rem;
-        line-height: 1.4;
+        line-height: 1.5;
     }
     
     .category-section {
@@ -358,52 +365,55 @@ def translate_to_korean_cached(text):
     except Exception as e:
         return text
 
-# ===== SUMMARY GENERATION =====
-def generate_summary(title, content, category):
+# ===== EXTRACT KEY POINTS FROM CONTENT =====
+def extract_key_points(content):
+    """Extract key points from article content"""
+    sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 15]
+    
+    key_points = []
+    
+    # Extract first 3 meaningful sentences
+    for i, sentence in enumerate(sentences[:5]):
+        if len(sentence) > 20 and sentence not in key_points:
+            key_points.append(sentence)
+            if len(key_points) >= 3:
+                break
+    
+    # If we don't have enough points, add generic ones
+    if len(key_points) < 1:
+        key_points.append("유럽 시장의 주요 동향 및 기술 발전을 보여주는 소식입니다.")
+    if len(key_points) < 2:
+        key_points.append("Samsung의 전략적 계획 수립에 참고할 만한 정보입니다.")
+    if len(key_points) < 3:
+        key_points.append("관련 분야 모니터링 및 추후 대응 필요합니다.")
+    
+    return key_points[:3]
+
+# ===== SUMMARY GENERATION WITH DETAILED BULLETS =====
+def generate_detailed_summary(title, content, category):
     """
-    Generate 5-bullet point summary without using paid APIs.
-    Uses pattern matching and keyword extraction.
+    Generate detailed summary with:
+    - Main headline
+    - 3 detailed sub-points
     """
     
-    summaries = {
-        "조달 및 소재": {
-            "headline": "공급망 영향 평가",
-            "section1_title": "시장 동향",
-            "section1_bullet": "원자재 및 반도체 가격 변동성이 Samsung의 조달 전략에 영향을 미치고 있습니다.",
-            "section2_title": "전략적 중요성",
-            "section2_bullet": "공급처 다양화와 원가 최적화 기회를 검토해야 합니다."
-        },
-        "공급망 및 물류": {
-            "headline": "물류 및 유통 업데이트",
-            "section1_title": "운영 위험",
-            "section1_bullet": "유럽 물류 중단으로 인한 납기 변화가 예상됩니다.",
-            "section2_title": "공급 전략",
-            "section2_bullet": "중국 의존도 감소 및 유럽 근처공급(nearshoring) 기회를 검토 중입니다."
-        },
-        "EU 규제 및 준수": {
-            "headline": "규제 준수 권고",
-            "section1_title": "준수 위험",
-            "section1_bullet": "새로운 EU 규제에 대한 즉시 대응과 실행 계획이 필요합니다.",
-            "section2_title": "시장 접근",
-            "section2_bullet": "제품 인증 업데이트로 유럽 시장 접근성을 확보해야 합니다."
-        },
-        "혁신 및 생태계": {
-            "headline": "혁신 및 파트너십 기회",
-            "section1_title": "신흥 기술",
-            "section1_bullet": "유럽의 Deep-tech 혁신이 Samsung의 파트너십 및 인수 기회로 평가됩니다.",
-            "section2_title": "경쟁 환경",
-            "section2_bullet": "유럽 스타트업의 핵심 기술 분야 진출과 벤처 펀딩이 증가하고 있습니다."
-        },
-        "Samsung 포트폴리오": {
-            "headline": "제품 및 시장 개발",
-            "section1_title": "포트폴리오 적합성",
-            "section1_bullet": "Samsung의 통신, 로봇 및 소비자 전자제품에 직접적인 영향을 미칩니다.",
-            "section2_title": "시장 기회",
-            "section2_bullet": "유럽 소비자 전자제품 시장에서의 성장 가능성과 경쟁 위치를 평가 중입니다."
-        }
+    # Extract key points from content
+    key_points = extract_key_points(content)
+    
+    category_headlines = {
+        "조달 및 소재": "공급망 영향 평가",
+        "공급망 및 물류": "물류 및 유통 업데이트",
+        "EU 규제 및 준수": "규제 준수 권고",
+        "혁신 및 생태계": "혁신 및 파트너십 기회",
+        "Samsung 포트폴리오": "제품 및 시장 개발"
     }
     
-    return summaries.get(category, summaries["혁신 및 생태계"])
+    return {
+        "headline": category_headlines.get(category, "전략 정보"),
+        "point1": key_points[0] if len(key_points) > 0 else "주요 내용",
+        "point2": key_points[1] if len(key_points) > 1 else "추가 정보",
+        "point3": key_points[2] if len(key_points) > 2 else "향후 대응"
+    }
 
 # ===== MULTI-LANGUAGE SEARCH =====
 def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
@@ -584,9 +594,9 @@ if run_report:
                     
                     article_count += 1
                     
-                    # Generate summary
+                    # Generate detailed summary
                     with st.spinner(f"📝 기사 {article_count} 분석 중..."):
-                        summary = generate_summary(
+                        summary = generate_detailed_summary(
                             article['title'],
                             article['content'],
                             cat_name
@@ -609,16 +619,25 @@ if run_report:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Summary section with 5 structured bullets
+                    # Summary section with detailed bullets
                     st.markdown(f"""
                     <div class="summary-section">
-                        <div class="summary-headline">📋 {summary.get('headline', 'Samsung 운영에 미치는 영향')}</div>
+                        <div class="summary-main-bullet">□ {summary.get('headline', 'Samsung 운영에 미치는 영향')}</div>
                         
-                        <h4>🔹 {summary.get('section1_title', '섹션 1')}</h4>
-                        <div class="summary-bullet">• {summary.get('section1_bullet', '내용')}</div>
+                        <div class="summary-sub-section">
+                            <div class="summary-bullet">- {summary.get('point1', '주요 내용')}</div>
+                            <div class="summary-bullet">· 관련 세부 정보를 검토하여 전략 반영 필요</div>
+                        </div>
                         
-                        <h4>🔹 {summary.get('section2_title', '섹션 2')}</h4>
-                        <div class="summary-bullet">• {summary.get('section2_bullet', '내용')}</div>
+                        <div class="summary-sub-section">
+                            <div class="summary-bullet">- {summary.get('point2', '추가 정보')}</div>
+                            <div class="summary-bullet">· 조달 및 공급망 계획 수립 시 고려 사항</div>
+                        </div>
+                        
+                        <div class="summary-sub-section">
+                            <div class="summary-bullet">- {summary.get('point3', '향후 대응')}</div>
+                            <div class="summary-bullet">· 시장 변화 모니터링 및 대응 필요</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
