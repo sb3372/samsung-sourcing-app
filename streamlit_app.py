@@ -100,7 +100,6 @@ st.markdown("""
         color: #f59e0b;
     }
     
-    /* Summary section - Main bullet */
     .summary-section {
         background: rgba(0, 102, 255, 0.05);
         padding: 1.2rem;
@@ -120,14 +119,6 @@ st.markdown("""
     
     .summary-sub-section {
         margin-bottom: 1rem;
-    }
-    
-    .summary-sub-title {
-        color: #0066ff;
-        font-weight: 700;
-        font-size: 0.95rem;
-        margin-bottom: 0.4rem;
-        margin-top: 0.6rem;
     }
     
     .summary-bullet {
@@ -199,6 +190,16 @@ st.markdown("""
         border-top: 1px solid rgba(0, 102, 255, 0.2);
         margin: 1.5rem 0;
     }
+    
+    .debug-box {
+        background: rgba(255, 107, 107, 0.1);
+        border-left: 3px solid #ff6b6b;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+        font-size: 0.85rem;
+        color: #ff6b6b;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -220,76 +221,76 @@ CATEGORIES = {
     "조달 및 소재": {
         "emoji": "💰",
         "queries": {
-            "en": "price volatility semiconductor electronic components smartphones raw materials Europe supply cost",
-            "de": "Preisvolatilität Halbleiter elektronische Komponenten Smartphones Rohstoffe Europa Lieferkosten",
-            "fr": "volatilité des prix composants électroniques smartphones matières premières Europe approvisionnement",
-            "es": "volatilidad de precios componentes electrónicos semiconductores smartphones materias primas Europa",
-            "it": "volatilità dei prezzi componenti elettronici smartphone materie prime Europa approvvigionamento",
-            "pl": "zmienność cen komponenty elektroniczne półprzewodniki smartfony surowce Europa",
-            "nl": "prijsvolatiliteit elektronische componenten smartphones grondstoffen Europa leveringen",
-            "da": "prisvolatilitet elektroniske komponenter smartphones råmaterialer Europa forsyning",
-            "no": "prisvolatilitet elektroniske komponenter smarttelefoner råvarer Europa forsyninger",
-            "sv": "prisvolatilitet elektroniska komponenter smartphones råvaror Europa försörjning"
+            "en": "semiconductor price volatility Europe 2024 2025",
+            "de": "Halbleiter Preise Europa",
+            "fr": "prix semiconducteur Europe",
+            "es": "precios semiconductores Europa",
+            "it": "prezzi semiconduttori Europa",
+            "pl": "ceny półprzewodników Europa",
+            "nl": "prijzen semiconductors Europa",
+            "da": "priser halvledere Europa",
+            "no": "priser halvledere Europa",
+            "sv": "priser halvledare Europa"
         },
     },
     "공급망 및 물류": {
         "emoji": "🚢",
         "queries": {
-            "en": "port strikes logistics disruptions China sourcing nearshoring Europe lead time semiconductor",
-            "de": "Hafenstreiks Logistikstörungen China Beschaffung Nearshoring Europa Lieferzeit",
-            "fr": "grèves portuaires perturbations logistiques sourcing Chine nearshoring Europe délai de livraison",
-            "es": "huelgas portuarias disrupciones logísticas sourcing China nearshoring Europa tiempo de entrega",
-            "it": "scioperi portuali interruzioni logistiche sourcing Cina nearshoring Europa tempo di consegna",
-            "pl": "strajki portowe zakłócenia logistyczne sourcing Chiny nearshoring Europa czas dostawy",
-            "nl": "havenstakingen logistieke verstoringen China sourcing nearshoring Europa levertijd",
-            "da": "havnestrejker logistiske forstyrrelser China sourcing nearshoring Europa leveringstid",
-            "no": "havnestreiker logistiske forstyrrelser China sourcing nearshoring Europa leveringstid",
-            "sv": "hamnstrejker logistiska störningar Kina sourcing nearshoring Europa leveranstid"
+            "en": "logistics disruption Europe port strikes 2024",
+            "de": "Logistik Störungen Europa Hafenstreiks",
+            "fr": "perturbations logistiques Europe grèves portuaires",
+            "es": "disrupciones logísticas Europa huelgas portuarias",
+            "it": "interruzioni logistiche Europa scioperi portuali",
+            "pl": "zakłócenia logistyczne Europa strajki portowe",
+            "nl": "logistieke verstoringen Europa havenstakingen",
+            "da": "logistiske forstyrrelser Europa havnestrejker",
+            "no": "logistiske forstyrrelser Europa havnestreiker",
+            "sv": "logistiska störningar Europa hamnstrejker"
         },
     },
     "EU 규제 및 준수": {
         "emoji": "⚖️",
         "queries": {
-            "en": "EU AI Act ESPR Digital Product Passport Cyber Resilience Act CRA energy labeling regulation compliance electronics",
-            "de": "EU-KI-Gesetz ESPR Digital Product Passport Cyber-Resilienz-Gesetz CRA Energiekennzeichnung Regelkonformität",
-            "fr": "Loi IA UE ESPR Passeport Numérique Produit Loi Résilience Cyber CRA étiquetage énergétique conformité",
-            "es": "Ley de IA de la UE ESPR Pasaporte Digital de Producto Ley de Resiliencia Cibernética CRA etiquetado energético",
-            "it": "Legge AI UE ESPR Passaporto Digitale Prodotto Legge Resilienza Cibernetica CRA etichettatura energetica",
-            "pl": "Ustawa AI UE ESPR Paszport Cyfrowy Produktu Ustawa Odporności Cybernetycznej CRA etykietowanie energetyczne",
-            "nl": "EU AI-wet ESPR Digitaal Productpaspoort Cyberveiligheidswet CRA energielabeling conformiteit",
-            "da": "EU AI-lov ESPR Digitalt produktpas Cybersikkerhedslov CRA energimærkning compliance",
-            "no": "EU AI-lov ESPR Digitalt produktpass Cybersikkerhetsloven CRA energimerking compliance",
-            "sv": "EU AI-lag ESPR Digitalt produktpass Cybersäkerhetslag CRA energimärkning regelefterlevnad"
+            "en": "EU AI Act CRA regulation electronics 2024",
+            "de": "EU KI Gesetz CRA Verordnung Elektronik",
+            "fr": "Loi IA UE CRA règlement électronique",
+            "es": "Ley IA UE CRA reglamento electrónico",
+            "it": "Legge IA UE CRA regolamento elettronico",
+            "pl": "Ustawa AI UE CRA regulacja elektronika",
+            "nl": "EU AI wet CRA regelgeving elektronica",
+            "da": "EU AI lov CRA regulering elektronik",
+            "no": "EU AI lov CRA regulering elektronikk",
+            "sv": "EU AI lag CRA regulering elektronik"
         },
     },
     "혁신 및 생태계": {
         "emoji": "🚀",
         "queries": {
-            "en": "European 6G robotics AI-native hardware sustainable materials startups venture capital grants deep-tech innovation",
-            "de": "Europäische 6G Robotik KI-Hardware nachhaltige Materialien Startups Risikokapital Zuschüsse Deep-Tech",
-            "fr": "6G européen robotique matériel IA matériaux durables startups capital-risque subventions innovation deep-tech",
-            "es": "6G europeo robótica hardware nativo de IA materiales sostenibles startups capital de riesgo subvenciones",
-            "it": "6G europeo robotica hardware nativo IA materiali sostenibili startup capitale di rischio sovvenzioni",
-            "pl": "Europejskie 6G robotyka sprzęt AI-native materiały zrównoważone startupy kapitał wysokiego ryzyka dotacje",
-            "nl": "Europese 6G robotica AI-native hardware duurzame materialen startups durfkapitaal subsidies",
-            "da": "Europæisk 6G robotik AI-hardware bæredygtige materialer startups venturekapital tilskud deep-tech",
-            "no": "Europeisk 6G robotikk AI-innfødt maskinvare bærekraftige materialer startups venturekapital stipend",
-            "sv": "Europeisk 6G robotteknik AI-ursprunglig hårdvara hållbara material startups riskkapital bidrag"
+            "en": "European startups 6G robotics AI innovation 2024",
+            "de": "Europäische Startups 6G Robotik AI Innovation",
+            "fr": "startups européens 6G robotique IA innovation",
+            "es": "startups europeos 6G robótica IA innovación",
+            "it": "startup europei 6G robotica IA innovazione",
+            "pl": "startupy europejskie 6G robotyka AI innowacja",
+            "nl": "Europese startups 6G robotica AI innovatie",
+            "da": "Europæiske startups 6G robotik AI innovation",
+            "no": "Europeiske startups 6G robotikk AI innovasjon",
+            "sv": "Europeiska startups 6G robotik AI innovation"
         },
     },
     "Samsung 포트폴리오": {
         "emoji": "📱",
         "queries": {
-            "en": "Samsung telecommunication devices wearables home appliances consumer electronics innovation Europe technology",
-            "de": "Samsung Telekommunikationsgeräte Wearables Haushaltsgeräte Unterhaltungselektronik Innovation Europa",
-            "fr": "Samsung appareils de télécommunication wearables appareils ménagers électronique grand public innovation",
-            "es": "Samsung dispositivos de telecomunicaciones wearables electrodomésticos electrónica de consumo innovación",
-            "it": "Samsung dispositivi telecomunicazioni wearables elettrodomestici elettronica di consumo innovazione",
-            "pl": "Samsung urządzenia telekomunikacyjne wearables urządzenia domowe elektronika konsumencka innowacja",
-            "nl": "Samsung telecommunicatieapparaten wearables huishoudelijke apparaten consumentenelektronica innovatie",
-            "da": "Samsung telekommunikationsudstyr wearables husholdningsapparater forbrugerelektronik innovation",
-            "no": "Samsung telekommunikasjonsutstyr wearables husholdningsapparater forbrukerelektronikk innovasjon",
-            "sv": "Samsung telekommunikationsenheter wearables hushållsapparater konsumentelektronik innovation"
+            "en": "Samsung Europe technology innovation 2024 2025",
+            "de": "Samsung Europa Technologie Innovation",
+            "fr": "Samsung Europe technologie innovation",
+            "es": "Samsung Europa tecnología innovación",
+            "it": "Samsung Europa tecnologia innovazione",
+            "pl": "Samsung Europa technologia innowacja",
+            "nl": "Samsung Europa technologie innovatie",
+            "da": "Samsung Europa teknologi innovation",
+            "no": "Samsung Europa teknologi innovasjon",
+            "sv": "Samsung Europa teknik innovation"
         },
     }
 }
@@ -372,14 +373,12 @@ def extract_key_points(content):
     
     key_points = []
     
-    # Extract first 3 meaningful sentences
     for i, sentence in enumerate(sentences[:5]):
         if len(sentence) > 20 and sentence not in key_points:
             key_points.append(sentence)
             if len(key_points) >= 3:
                 break
     
-    # If we don't have enough points, add generic ones
     if len(key_points) < 1:
         key_points.append("유럽 시장의 주요 동향 및 기술 발전을 보여주는 소식입니다.")
     if len(key_points) < 2:
@@ -397,7 +396,6 @@ def generate_detailed_summary(title, content, category):
     - 3 detailed sub-points
     """
     
-    # Extract key points from content
     key_points = extract_key_points(content)
     
     category_headlines = {
@@ -416,52 +414,77 @@ def generate_detailed_summary(title, content, category):
     }
 
 # ===== MULTI-LANGUAGE SEARCH =====
-def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
+def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3, debug_info=None):
     """Perform searches across multiple languages"""
     
     all_results = []
     seen_urls = set()
+    search_attempts = []
     
     for lang_name, lang_code in LANGUAGES.items():
         if len(all_results) >= MAX_PER_CATEGORY:
             break
             
         query = category_config["queries"].get(lang_code, category_config["queries"]["en"])
-        search_query = f"{query} (published after {(datetime.now() - timedelta(days=MAX_SEARCH_AGE_DAYS)).strftime('%Y-%m-%d')})"
         
         try:
+            # Simple search without date filter first
             results = tavily_client.search(
-                query=search_query,
+                query=query,
                 search_depth="advanced",
                 max_results=max_results,
                 include_raw_content=True
             )
+            
+            search_attempts.append({
+                "language": lang_name,
+                "query": query,
+                "results_count": len(results.get('results', []))
+            })
             
             for res in results.get('results', []):
                 if len(all_results) >= MAX_PER_CATEGORY:
                     break
                     
                 url = res.get('url')
+                title = res.get('title', 'No title')
+                content = res.get('content', '')
                 
+                # Only skip if URL is in history
                 if url in seen_urls or url in history["articles"]:
                     continue
                 
-                if is_duplicate(res.get('title', ''), res.get('content', ''), history):
+                # Skip if content is too short
+                if len(content) < 50:
+                    continue
+                
+                if is_duplicate(title, content, history):
                     continue
                 
                 seen_urls.add(url)
                 
                 all_results.append({
                     "url": url,
-                    "title": res.get('title', 'No title'),
-                    "content": res.get('content', ''),
+                    "title": title,
+                    "content": content,
                     "language": lang_name,
                     "lang_code": lang_code,
-                    "raw_content": res.get('raw_content', res.get('content', ''))[:500]
+                    "raw_content": res.get('raw_content', content)[:500]
                 })
         
         except Exception as e:
-            pass
+            search_attempts.append({
+                "language": lang_name,
+                "query": query,
+                "error": str(e)
+            })
+    
+    if debug_info is not None:
+        debug_info.append({
+            "category": category_name,
+            "total_results": len(all_results),
+            "search_attempts": search_attempts
+        })
     
     return all_results
 
@@ -476,6 +499,9 @@ st.markdown("""
 # Sidebar
 st.sidebar.header("⚙️ 설정")
 tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
+
+# 디버그 모드
+debug_mode = st.sidebar.checkbox("🐛 디버그 모드", value=False)
 
 # History stats
 history = load_history()
@@ -531,6 +557,7 @@ if run_report:
         
         all_articles = []
         articles_by_category = {}
+        debug_info = [] if debug_mode else None
         
         # Search all categories
         for idx, (cat_name, cat_config) in enumerate(CATEGORIES.items()):
@@ -541,7 +568,8 @@ if run_report:
                 cat_name, 
                 client, 
                 history,
-                max_results=2
+                max_results=2,
+                debug_info=debug_info
             )
             
             if results:
@@ -556,6 +584,17 @@ if run_report:
         # Clear progress indicators
         progress_bar.empty()
         status_text.empty()
+        
+        # Debug info
+        if debug_mode and debug_info:
+            st.markdown("### 🐛 디버그 정보")
+            for info in debug_info:
+                with st.expander(f"{info['category']} - {info['total_results']}개 기사 발견"):
+                    for attempt in info['search_attempts']:
+                        st.write(f"**{attempt['language']}**: {attempt.get('results_count', 0)} 결과")
+                        st.code(attempt['query'])
+                        if 'error' in attempt:
+                            st.error(f"Error: {attempt['error']}")
         
         # Summary stats
         st.markdown("---")
@@ -678,4 +717,13 @@ if run_report:
                 st.metric("📈 데이터베이스", len(history["articles"]))
         
         else:
-            st.info("✅ 새로운 기사가 없습니다. 최근 모든 콘텐츠는 이미 검토되었습니다!")
+            st.warning("⚠️ 검색 결과가 없습니다. 몇 가지 확인사항:")
+            st.markdown("""
+            1. **Tavily API 키 확인**: API 키가 유효한지 확인하세요.
+            2. **검색 쿼리**: 더 간단한 검색어로 변경되었습니다.
+            3. **데이터 가용성**: Tavily에 해당 지역의 기사가 없을 수 있습니다.
+            4. **디버그 모드**: 사이드바에서 "디버그 모드"를 켜고 다시 시도하세요.
+            """)
+            
+            if debug_mode:
+                st.info("💡 디버그 정보는 위의 '디버그 정보' 섹션에서 확인할 수 있습니다.")
