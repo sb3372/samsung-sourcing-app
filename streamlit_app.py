@@ -6,8 +6,6 @@ import json
 import hashlib
 from collections import defaultdict
 import re
-from google.cloud import translate_v2
-from google.oauth2 import service_account
 
 # ===== PAGE CONFIGURATION =====
 st.set_page_config(
@@ -348,61 +346,60 @@ def add_to_history(url, title, content, category, language):
     
     save_history(history)
 
-# ===== FREE TRANSLATION AND SUMMARY =====
-def translate_to_korean(text):
-    """Translate text to Korean using free translation service (google-translate-no-auth)"""
+# ===== FREE TRANSLATION USING GOOGLE TRANSLATE =====
+@st.cache_data
+def translate_to_korean_cached(text):
+    """Translate text to Korean with caching"""
     try:
         from google_trans_new import google_translator
         translator = google_translator()
         result = translator.translate(text, lang_src='en', lang_tgt='ko')
         return result
-    except:
+    except Exception as e:
         return text
 
+# ===== SUMMARY GENERATION =====
 def generate_summary(title, content, category):
     """
     Generate 5-bullet point summary without using paid APIs.
     Uses pattern matching and keyword extraction.
     """
     
-    # Extract key sentences from content
-    sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 20][:5]
-    
     summaries = {
         "조달 및 소재": {
             "headline": "공급망 영향 평가",
             "section1_title": "시장 동향",
-            "section1_bullet": f"원자재 및 반도체 가격 변동성이 Samsung의 조달 전략에 영향을 미치고 있습니다.",
+            "section1_bullet": "원자재 및 반도체 가격 변동성이 Samsung의 조달 전략에 영향을 미치고 있습니다.",
             "section2_title": "전략적 중요성",
-            "section2_bullet": f"공급처 다양화와 원가 최적화 기회를 검토해야 합니다."
+            "section2_bullet": "공급처 다양화와 원가 최적화 기회를 검토해야 합니다."
         },
         "공급망 및 물류": {
             "headline": "물류 및 유통 업데이트",
             "section1_title": "운영 위험",
-            "section1_bullet": f"유럽 물류 중단으로 인한 납기 변화가 예상됩니다.",
+            "section1_bullet": "유럽 물류 중단으로 인한 납기 변화가 예상됩니다.",
             "section2_title": "공급 전략",
-            "section2_bullet": f"중국 의존도 감소 및 유럽 근처공급(nearshoring) 기회를 검토 중입니다."
+            "section2_bullet": "중국 의존도 감소 및 유럽 근처공급(nearshoring) 기회를 검토 중입니다."
         },
         "EU 규제 및 준수": {
             "headline": "규제 준수 권고",
             "section1_title": "준수 위험",
-            "section1_bullet": f"새로운 EU 규제에 대한 즉시 대응과 실행 계획이 필요합니다.",
+            "section1_bullet": "새로운 EU 규제에 대한 즉시 대응과 실행 계획이 필요합니다.",
             "section2_title": "시장 접근",
-            "section2_bullet": f"제품 인증 업데이트로 유럽 시장 접근성을 확보해야 합니다."
+            "section2_bullet": "제품 인증 업데이트로 유럽 시장 접근성을 확보해야 합니다."
         },
         "혁신 및 생태계": {
             "headline": "혁신 및 파트너십 기회",
             "section1_title": "신흥 기술",
-            "section1_bullet": f"유럽의 Deep-tech 혁신이 Samsung의 파트너십 및 인수 기회로 평가됩니다.",
+            "section1_bullet": "유럽의 Deep-tech 혁신이 Samsung의 파트너십 및 인수 기회로 평가됩니다.",
             "section2_title": "경쟁 환경",
-            "section2_bullet": f"유럽 스타트업의 핵심 기술 분야 진출과 벤처 펀딩이 증가하고 있습니다."
+            "section2_bullet": "유럽 스타트업의 핵심 기술 분야 진출과 벤처 펀딩이 증가하고 있습니다."
         },
         "Samsung 포트폴리오": {
             "headline": "제품 및 시장 개발",
             "section1_title": "포트폴리오 적합성",
-            "section1_bullet": f"Samsung의 통신, 로봇 및 소비자 전자제품에 직접적인 영향을 미칩니다.",
+            "section1_bullet": "Samsung의 통신, 로봇 및 소비자 전자제품에 직접적인 영향을 미칩니다.",
             "section2_title": "시장 기회",
-            "section2_bullet": f"유럽 소비자 전자제품 시장에서의 성장 가능성과 경쟁 위치를 평가 중입니다."
+            "section2_bullet": "유럽 소비자 전자제품 시장에서의 성장 가능성과 경쟁 위치를 평가 중입니다."
         }
     }
     
@@ -597,8 +594,8 @@ if run_report:
                         
                         # Translate title to Korean
                         try:
-                            title_kr = translate_to_korean(article['title'])
-                        except:
+                            title_kr = translate_to_korean_cached(article['title'])
+                        except Exception as e:
                             title_kr = article['title']
                     
                     # Article card
