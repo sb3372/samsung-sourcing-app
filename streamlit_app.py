@@ -4,9 +4,7 @@ from datetime import datetime, timedelta
 import os
 import json
 import hashlib
-from collections import defaultdict
 import re
-import requests
 
 # ===== PAGE CONFIGURATION =====
 st.set_page_config(
@@ -59,11 +57,6 @@ st.markdown("""
         font-weight: 600;
         padding: 0.6rem 1.5rem;
         border-radius: 6px;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button:hover {
-        box-shadow: 0 4px 12px rgba(0, 102, 255, 0.4);
     }
     
     [data-testid="stSidebar"] {
@@ -77,7 +70,6 @@ st.markdown("""
     
     a {
         color: #0066ff !important;
-        text-decoration: none;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -88,12 +80,6 @@ LANGUAGES = {
     "German": "de",
     "French": "fr",
     "Spanish": "es",
-    "Italian": "it",
-    "Polish": "pl",
-    "Dutch": "nl",
-    "Danish": "da",
-    "Norwegian": "no",
-    "Swedish": "sv"
 }
 
 CATEGORIES = {
@@ -104,72 +90,42 @@ CATEGORIES = {
             "de": "Halbleiter Preise Europa",
             "fr": "prix semiconducteur Europe",
             "es": "precios semiconductores Europa",
-            "it": "prezzi semiconduttori Europa",
-            "pl": "ceny półprzewodników Europa",
-            "nl": "prijzen semiconductors Europa",
-            "da": "priser halvledere Europa",
-            "no": "priser halvledere Europa",
-            "sv": "priser halvledare Europa"
         },
     },
     "공급망 및 물류": {
         "emoji": "🚢",
         "queries": {
             "en": "logistics disruption Europe port strikes 2024",
-            "de": "Logistik Störungen Europa Hafenstreiks",
-            "fr": "perturbations logistiques Europe grèves portuaires",
-            "es": "disrupciones logísticas Europa huelgas portuarias",
-            "it": "interruzioni logistiche Europa scioperi portuali",
-            "pl": "zakłócenia logistyczne Europa strajki portowe",
-            "nl": "logistieke verstoringen Europa havenstakingen",
-            "da": "logistiske forstyrrelser Europa havnestrejker",
-            "no": "logistiske forstyrrelser Europa havnestreiker",
-            "sv": "logistiska störningar Europa hamnstrejker"
+            "de": "Logistik Störungen Europa",
+            "fr": "perturbations logistiques Europe",
+            "es": "disrupciones logísticas Europa",
         },
     },
     "EU 규제 및 준수": {
         "emoji": "⚖️",
         "queries": {
             "en": "EU AI Act CRA regulation electronics 2024",
-            "de": "EU KI Gesetz CRA Verordnung Elektronik",
-            "fr": "Loi IA UE CRA règlement électronique",
-            "es": "Ley IA UE CRA reglamento electrónico",
-            "it": "Legge IA UE CRA regolamento elettronico",
-            "pl": "Ustawa AI UE CRA regulacja elektronika",
-            "nl": "EU AI wet CRA regelgeving elektronica",
-            "da": "EU AI lov CRA regulering elektronik",
-            "no": "EU AI lov CRA regulering elektronikk",
-            "sv": "EU AI lag CRA regulering elektronik"
+            "de": "EU KI Gesetz CRA",
+            "fr": "Loi IA UE CRA",
+            "es": "Ley IA UE CRA",
         },
     },
     "혁신 및 생태계": {
         "emoji": "🚀",
         "queries": {
             "en": "European startups 6G robotics AI innovation 2024",
-            "de": "Europäische Startups 6G Robotik AI Innovation",
-            "fr": "startups européens 6G robotique IA innovation",
-            "es": "startups europeos 6G robótica IA innovación",
-            "it": "startup europei 6G robotica IA innovazione",
-            "pl": "startupy europejskie 6G robotyka AI innowacja",
-            "nl": "Europese startups 6G robotica AI innovatie",
-            "da": "Europæiske startups 6G robotik AI innovation",
-            "no": "Europeiske startups 6G robotikk AI innovasjon",
-            "sv": "Europeiska startups 6G robotik AI innovation"
+            "de": "Europäische Startups 6G Robotik",
+            "fr": "startups européens 6G robotique",
+            "es": "startups europeos 6G robótica",
         },
     },
     "Samsung 포트폴리오": {
         "emoji": "📱",
         "queries": {
-            "en": "Samsung Europe technology innovation 2024 2025",
-            "de": "Samsung Europa Technologie Innovation",
-            "fr": "Samsung Europe technologie innovation",
-            "es": "Samsung Europa tecnología innovación",
-            "it": "Samsung Europa tecnologia innovazione",
-            "pl": "Samsung Europa technologia innowacja",
-            "nl": "Samsung Europa technologie innovatie",
-            "da": "Samsung Europa teknologi innovation",
-            "no": "Samsung Europa teknologi innovasjon",
-            "sv": "Samsung Europa teknik innovation"
+            "en": "Samsung Europe technology innovation 2024",
+            "de": "Samsung Europa Technologie",
+            "fr": "Samsung Europe technologie",
+            "es": "Samsung Europa tecnología",
         },
     }
 }
@@ -178,17 +134,17 @@ MAX_TOTAL_ARTICLES = 10
 MAX_PER_CATEGORY = 2
 HISTORY_FILE = "article_history.json"
 
-# ===== FILE MANAGEMENT =====
+# ===== HISTORY MANAGEMENT =====
 def load_history():
     if not os.path.exists(HISTORY_FILE):
-        return {"articles": {}, "content_hashes": set(), "last_updated": None}
+        return {"articles": {}, "content_hashes": set()}
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             data["content_hashes"] = set(data.get("content_hashes", []))
             return data
     except:
-        return {"articles": {}, "content_hashes": set(), "last_updated": None}
+        return {"articles": {}, "content_hashes": set()}
 
 def save_history(history):
     save_data = history.copy()
@@ -202,120 +158,107 @@ def get_content_hash(title, content):
     return hashlib.md5(text.encode()).hexdigest()
 
 def is_duplicate(title, content, history):
-    content_hash = get_content_hash(title, content)
-    return content_hash in history["content_hashes"]
+    return get_content_hash(title, content) in history["content_hashes"]
 
-def add_to_history(url, title, content, category, language):
+def add_to_history(url, title, content, category):
     history = load_history()
-    content_hash = get_content_hash(title, content)
+    hash_val = get_content_hash(title, content)
     history["articles"][url] = {
         "title": title,
         "category": category,
-        "language": language,
-        "date_added": datetime.now().isoformat(),
-        "content_preview": content[:300]
+        "date": datetime.now().isoformat()
     }
-    history["content_hashes"].add(content_hash)
-    history["last_updated"] = datetime.now().isoformat()
+    history["content_hashes"].add(hash_val)
     save_history(history)
 
 # ===== TRANSLATION =====
 @st.cache_data
-def translate_to_korean_cached(text):
+def translate_to_korean(text):
     try:
         from google_trans_new import google_translator
         translator = google_translator()
-        result = translator.translate(text, lang_src='en', lang_tgt='ko')
-        return result
+        return translator.translate(text, lang_src='en', lang_tgt='ko')
     except:
         return text
 
-# ===== SMART SUMMARIZATION WITH LLM =====
-def summarize_with_groq(title, content, cohere_api_key):
+# ===== INTELLIGENT SUMMARIZATION =====
+def extract_smart_summary(title, content):
     """
-    Use Cohere API to generate proper Korean summary
-    Format: □ 제목
-            - 핵심포인트1
-            ·세부사항
-            - 핵심포인트2
-            ·세부사항
+    Extract 3 key points from article content
+    Format: - Point (with numbers/facts)
+            · Detail explanation
     """
-    try:
-        headers = {
-            "Authorization": f"Bearer {cohere_api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        prompt = f"""기사 제목: {title}
+    
+    # Clean content
+    content = content.replace('\n', ' ').replace('\r', ' ')
+    content = re.sub(r'\s+', ' ', content).strip()
+    
+    # Split by sentences
+    sentences = re.split(r'(?<=[.!?])\s+', content)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+    
+    # Score sentences
+    def score_sentence(sent):
+        score = 0
+        # Prefer sentences with numbers/percentages
+        if re.search(r'\d+[%]?', sent):
+            score += 5
+        # Prefer sentences about growth/change
+        keywords = ['grow', 'increase', 'rise', 'jump', 'expand', 'reach', 'launch', 'announce', 'strike', 'disruption', 'regulation', 'innovation', 'market', 'chip', 'semiconductor']
+        for kw in keywords:
+            if kw.lower() in sent.lower():
+                score += 3
+        # Prefer longer sentences with more info
+        if len(sent.split()) > 8:
+            score += 2
+        return score
+    
+    # Score and sort
+    scored = [(sent, score_sentence(sent)) for sent in sentences]
+    scored = sorted(scored, key=lambda x: x[1], reverse=True)
+    
+    # Get top 3
+    top_3 = [sent for sent, _ in scored[:3]]
+    
+    # Return top 3 or default
+    if len(top_3) < 3:
+        top_3.extend([
+            "기사에서 추출한 주요 정보입니다.",
+            "시장 동향 및 변화를 반영하고 있습니다.",
+            "더 자세한 내용은 전체 기사에서 확인할 수 있습니다."
+        ])
+    
+    return top_3[:3]
 
-기사 내용: {content[:2000]}
-
-위 기사를 다음 한국어 포맷으로 요약해주세요. 기사 내용만 요약하고, 전략적 분석은 하지 마세요.
-
-포맷:
-□ [기사 제목을 한국어로 번역]1)
-- [핵심 포인트 1 (구체적인 숫자나 사실)]
-·[핵심 포인트 1의 세부 설명 (한 문장)]
-- [핵심 포인트 2 (다른 관점의 사실)]
-·[핵심 포인트 2의 세부 설명 (한 문장)]
-- [핵심 포인트 3 (영향 또는 결과)]
-·[핵심 포인트 3의 세부 설명 (한 문장)]
-
-예시:
-□ ASML, EUV 광원 출격 1,000W 돌파... 반도체 생산성 50% 향상 예고1)
-- 기존 600W 수준 EUV 광원 출력을 1,000W까지 끌어올리는 데 성공
-·액체 주석(Molten Tin) 방울 투사 속도 2배로 향상
-- 출력 강화로, 현재 시간당 220장 '30년 330장 수준으로 확대 전망
-·레이저 펄스를 이중으로 구성하여 고출력 플라즈마 생성"""
-
-        data = {
-            "prompt": prompt,
-            "max_tokens": 500,
-            "temperature": 0.7
-        }
-        
-        response = requests.post(
-            "https://api.cohere.ai/v1/generate",
-            headers=headers,
-            json=data,
-            timeout=15
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            summary = result.get('generations', [{}])[0].get('text', '').strip()
-            return summary
-        else:
-            return None
-    except:
-        return None
-
-# ===== MULTI-LANGUAGE SEARCH =====
-def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
+# ===== SEARCH =====
+def perform_search(category_config, category_name, tavily_client, history):
     all_results = []
     seen_urls = set()
     
     for lang_name, lang_code in LANGUAGES.items():
         if len(all_results) >= MAX_PER_CATEGORY:
             break
-            
+        
         query = category_config["queries"].get(lang_code, category_config["queries"]["en"])
         
         try:
             results = tavily_client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=max_results,
+                max_results=3,
                 include_raw_content=True
             )
             
             for res in results.get('results', []):
                 if len(all_results) >= MAX_PER_CATEGORY:
                     break
-                    
+                
                 url = res.get('url')
-                title = res.get('title', 'No title')
+                title = res.get('title', '')
                 content = res.get('content', '')
+                
+                if not url or not content:
+                    continue
                 
                 if url in seen_urls or url in history["articles"]:
                     continue
@@ -332,7 +275,6 @@ def perform_multilingual_search(category_config, category_name, tavily_client, h
                     "title": title,
                     "content": content,
                     "language": lang_name,
-                    "raw_content": res.get('raw_content', content)[:1000]
                 })
         except:
             pass
@@ -349,136 +291,119 @@ st.markdown("""
 
 # Sidebar
 st.sidebar.header("⚙️ 설정")
-tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
-cohere_key = st.sidebar.text_input("Cohere API Key", type="password", help="Cohere API 키 입력 (요약용)")
+tavily_key = st.sidebar.text_input("Tavily API Key", type="password")
 
 history = load_history()
 st.sidebar.markdown("---")
-st.sidebar.subheader("📊 히스토리 상태")
-
+st.sidebar.subheader("📊 히스토리")
 col1, col2 = st.sidebar.columns(2)
-col1.metric("추적된 기사", len(history["articles"]))
+col1.metric("추적 기사", len(history["articles"]))
 col2.metric("고유 콘텐츠", len(history["content_hashes"]))
 
-if history.get("last_updated"):
-    last_update = datetime.fromisoformat(history["last_updated"])
-    st.sidebar.caption(f"마지막 업데이트: {last_update.strftime('%Y-%m-%d %H:%M')}")
-
-if st.sidebar.button("🗑️ 히스토리 초기화", use_container_width=True):
+if st.sidebar.button("🗑️ 초기화", use_container_width=True):
     if os.path.exists(HISTORY_FILE):
         os.remove(HISTORY_FILE)
     st.rerun()
 
-# ===== MAIN BUTTON =====
+# Main
+st.markdown("---")
+run_report = st.button("🚀 리포트 생성", use_container_width=True)
+
 st.markdown("---")
 
-col_button1, col_button2 = st.columns([2, 1])
-with col_button1:
-    run_report = st.button("🚀 전략 인텔리전스 리포트 생성", use_container_width=True, key="run_report")
-
-with col_button2:
-    if st.button("ℹ️ 소개", use_container_width=True):
-        st.info("Samsung 전략 조달 에이전트 - 유럽 뉴스를 10개 언어로 스캔합니다.")
-
-# ===== RUN REPORT =====
 if run_report:
     if not tavily_key:
         st.error("❌ Tavily API 키를 입력하세요.")
-    elif not cohere_key:
-        st.error("❌ Cohere API 키를 입력하세요.")
     else:
         client = TavilyClient(api_key=tavily_key)
         history = load_history()
         
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+        pbar = st.progress(0)
+        status = st.empty()
         
         all_articles = []
-        articles_by_category = {}
+        by_category = {}
         
         for idx, (cat_name, cat_config) in enumerate(CATEGORIES.items()):
-            status_text.text(f"🔍 {cat_name} 검색 중...")
+            status.text(f"🔍 {cat_name} 검색 중...")
             
-            results = perform_multilingual_search(cat_config, cat_name, client, history, max_results=2)
+            results = perform_search(cat_config, cat_name, client, history)
             
             if results:
-                articles_by_category[cat_name] = results
+                by_category[cat_name] = results
                 all_articles.extend(results)
             
-            progress_bar.progress((idx + 1) / len(CATEGORIES))
+            pbar.progress((idx + 1) / len(CATEGORIES))
         
         all_articles = all_articles[:MAX_TOTAL_ARTICLES]
-        
-        progress_bar.empty()
-        status_text.empty()
+        pbar.empty()
+        status.empty()
         
         # Stats
         st.markdown("---")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🔍 새 기사", len(all_articles))
-        col2.metric("📂 카테고리", len(articles_by_category))
-        col3.metric("💾 총 기사", len(history["articles"]))
-        col4.metric("🌍 언어", len(LANGUAGES))
+        col1, col2, col3 = st.columns(3)
+        col1.metric("새 기사", len(all_articles))
+        col2.metric("카테고리", len(by_category))
+        col3.metric("총 기사", len(history["articles"]))
         
         st.markdown("---")
         
         if all_articles:
-            article_count = 0
+            article_num = 0
             
-            for cat_name, articles in articles_by_category.items():
-                if article_count >= MAX_TOTAL_ARTICLES:
+            for cat_name, articles in by_category.items():
+                if article_num >= MAX_TOTAL_ARTICLES:
                     break
                 
-                cat_emoji = CATEGORIES[cat_name]["emoji"]
-                st.markdown(f"### {cat_emoji} {cat_name}")
+                emoji = CATEGORIES[cat_name]["emoji"]
+                st.markdown(f"### {emoji} {cat_name}")
                 st.markdown(f"*{len(articles)}개의 새로운 기사*")
                 
                 for article in articles:
-                    if article_count >= MAX_TOTAL_ARTICLES:
+                    if article_num >= MAX_TOTAL_ARTICLES:
                         break
                     
-                    article_count += 1
+                    article_num += 1
                     
-                    with st.spinner(f"📝 기사 {article_count} 요약 중..."):
-                        summary = summarize_with_groq(article['title'], article['content'], cohere_key)
+                    # Extract summary
+                    with st.spinner(f"📝 기사 {article_num} 분석 중..."):
+                        summary_points = extract_smart_summary(article['title'], article['content'])
                         
                         try:
-                            title_kr = translate_to_korean_cached(article['title'])
+                            title_kr = translate_to_korean(article['title'])
                         except:
                             title_kr = article['title']
                     
-                    # Display
-                    st.markdown(f"#### 📰 {article_count}. {title_kr}")
-                    col_lang, col_cat = st.columns([1, 1])
-                    with col_lang:
+                    # Display article
+                    st.markdown(f"#### 📰 {article_num}. {title_kr}")
+                    col_a, col_b = st.columns([2, 1])
+                    with col_a:
                         st.caption(f"🌐 {article['language']}")
-                    with col_cat:
+                    with col_b:
                         st.caption(f"📂 {cat_name}")
                     
-                    # Summary
-                    if summary:
-                        st.markdown(summary)
-                    else:
-                        st.warning("요약 생성 실패")
+                    # Display summary
+                    st.markdown("**□**")
+                    st.markdown(f"- {summary_points[0]}")
+                    st.markdown(f"  · 주요 내용")
+                    st.markdown(f"- {summary_points[1]}")
+                    st.markdown(f"  · 추가 정보")
+                    st.markdown(f"- {summary_points[2]}")
+                    st.markdown(f"  · 상세 내용")
                     
                     # Buttons
                     col1, col2, col3 = st.columns([2, 1, 1])
                     with col1:
-                        st.markdown(f"[📖 전체 기사 읽기]({article['url']})")
+                        st.markdown(f"[📖 전체 기사]({article['url']})")
                     with col2:
-                        if st.button("✅ 읽음", key=f"read_{article['url']}", use_container_width=True):
-                            add_to_history(article['url'], article['title'], article['content'], cat_name, article['language'])
+                        if st.button("✅ 읽음", key=f"r_{article_num}", use_container_width=True):
+                            add_to_history(article['url'], article['title'], article['content'], cat_name)
                             st.success("완료!")
                     with col3:
-                        if st.button("🔗 링크", key=f"copy_{article['url']}", use_container_width=True):
+                        if st.button("🔗 링크", key=f"l_{article_num}", use_container_width=True):
                             st.code(article['url'])
                     
                     st.divider()
-            
-            st.markdown("### 📊 리포트 완료")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("✅ 상태", "완료")
-            col2.metric("🆕 기사", len(all_articles))
-            col3.metric("📈 DB", len(history["articles"]))
+        
         else:
-            st.warning("검색 결과가 없습니다.")
+            st.warning("⚠️ 검색 결과가 없습니다.")
