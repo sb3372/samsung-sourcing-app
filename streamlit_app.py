@@ -6,7 +6,7 @@ import json
 import hashlib
 from collections import defaultdict
 import re
-from anthropic import Anthropic
+import requests
 
 # ===== PAGE CONFIGURATION =====
 st.set_page_config(
@@ -200,34 +200,6 @@ st.markdown("""
         text-decoration: underline;
     }
     
-    /* Stats grid */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1rem;
-        margin: 1.5rem 0;
-    }
-    
-    .stat-card {
-        background: #1a1f2e;
-        padding: 1rem;
-        border-radius: 6px;
-        border-top: 3px solid #0066ff;
-        text-align: center;
-    }
-    
-    .stat-value {
-        color: #0066ff;
-        font-size: 2rem;
-        font-weight: 700;
-    }
-    
-    .stat-label {
-        color: #b0b8c1;
-        font-size: 0.85rem;
-        margin-top: 0.3rem;
-    }
-    
     /* Divider */
     hr {
         border: none;
@@ -287,7 +259,7 @@ CATEGORIES = {
         "queries": {
             "en": "EU AI Act ESPR Digital Product Passport Cyber Resilience Act CRA energy labeling regulation compliance electronics",
             "de": "EU-KI-Gesetz ESPR Digital Product Passport Cyber-Resilienz-Gesetz CRA Energiekennzeichnung Regelkonformität",
-            "fr": "Loi IA UE ESPR Passeport Numérique Produit Loi Résilience Cyber CRA ��tiquetage énergétique conformité",
+            "fr": "Loi IA UE ESPR Passeport Numérique Produit Loi Résilience Cyber CRA étiquetage énergétique conformité",
             "es": "Ley de IA de la UE ESPR Pasaporte Digital de Producto Ley de Resiliencia Cibernética CRA etiquetado energético",
             "it": "Legge AI UE ESPR Passaporto Digitale Prodotto Legge Resilienza Cibernetica CRA etichettatura energetica",
             "pl": "Ustawa AI UE ESPR Paszport Cyfrowy Produktu Ustawa Odporności Cybernetycznej CRA etykietowanie energetyczne",
@@ -389,9 +361,9 @@ def add_to_history(url, title, content, category, language):
     save_history(history)
 
 # ===== TRANSLATION AND SUMMARY GENERATION =====
-def translate_and_summarize(title, content, category, api_key):
+def translate_and_summarize(title, content, category, openai_api_key):
     """
-    Translate article to Korean and generate 5-bullet summary using Claude API.
+    Translate article to Korean and generate 5-bullet summary using OpenAI API.
     Returns: {
         'title_kr': Korean title,
         'headline': 메인 헤드라인,
@@ -402,64 +374,84 @@ def translate_and_summarize(title, content, category, api_key):
     }
     """
     try:
-        client = Anthropic(api_key=api_key)
+        headers = {
+            "Authorization": f"Bearer {openai_api_key}",
+            "Content-Type": "application/json"
+        }
         
-        prompt = f"""
-당신은 Samsung 조달 전문가입니다. 다음 기사를 한국어로 번역하고 요약해주세요.
+        prompt = f"""당신은 Samsung 조달 전문가입니다. 다음 기사를 한국어로 번역하고 요약해주세요.
 
-**기사 제목**: {title}
+기사 제목: {title}
 
-**기사 내용**: {content[:1500]}
+기사 내용: {content[:1200]}
 
-**카테고리**: {category}
+카테고리: {category}
 
-한국어로 다음 JSON 형식으로 응답해주세요:
+한국어로 다음 JSON 형식으로만 응답해주세요 (다른 텍스트 없이):
 {{
-  "title_kr": "한국어 제목",
-  "headline": "Samsung 운영에 미치는 영향 (한 줄 요약)",
+  "title_kr": "한국어 제목 (10-20 글자)",
+  "headline": "Samsung 운영에 미치는 영향 (한 줄 요약, 15-20 글자)",
   "section1_title": "첫 번째 소제목 (3-4 단어)",
-  "section1_bullet": "첫 번째 상세 설명 (한 문장)",
+  "section1_bullet": "첫 번째 상세 설명 (20-30 글자 한 문장)",
   "section2_title": "두 번째 소제목 (3-4 단어)",
-  "section2_bullet": "두 번째 상세 설명 (한 문장)"
-}}
-
-응답은 JSON만 제공하고 다른 텍스트는 없어야 합니다.
-"""
+  "section2_bullet": "두 번째 상세 설명 (20-30 글자 한 문장)"
+}}"""
         
-        message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1024,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+        data = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 500,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
         )
         
-        response_text = message.content[0].text
+        if response.status_code != 200:
+            st.warning(f"OpenAI API 오류: {response.status_code}")
+            return get_default_summary(title, category)
+        
+        response_json = response.json()
+        response_text = response_json["choices"][0]["message"]["content"]
         
         # Parse JSON from response
-        import json as json_module
         try:
-            summary_data = json_module.loads(response_text)
-        except:
-            # Try to extract JSON if there's extra text
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                summary_data = json_module.loads(json_match.group())
-            else:
-                raise ValueError("Could not parse JSON response")
+            # Remove markdown code blocks if present
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0]
+            
+            summary_data = json.loads(response_text.strip())
+        except json.JSONDecodeError:
+            st.warning("JSON 파싱 오류, 기본 요약 사용")
+            return get_default_summary(title, category)
         
         return summary_data
     
     except Exception as e:
-        st.error(f"AI 번역 오류: {str(e)}")
-        return {
-            'title_kr': title,
-            'headline': '요약 생성 실패',
-            'section1_title': '섹션 1',
-            'section1_bullet': '콘텐츠를 가져올 수 없습니다.',
-            'section2_title': '섹션 2',
-            'section2_bullet': '나중에 다시 시도하세요.'
-        }
+        st.warning(f"번역 오류: {str(e)}, 기본 요약 사용")
+        return get_default_summary(title, category)
+
+def get_default_summary(title, category):
+    """Return a default summary when API fails"""
+    return {
+        'title_kr': title,
+        'headline': f'{category} 관련 중요 소식',
+        'section1_title': '시장 영향',
+        'section1_bullet': 'Samsung의 운영에 영향을 미치는 주요 사항입니다.',
+        'section2_title': '전략적 중요성',
+        'section2_bullet': '향후 조달 전략 수립 시 검토 필요합니다.'
+    }
 
 # ===== MULTI-LANGUAGE SEARCH =====
 def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3):
@@ -523,11 +515,8 @@ st.markdown("""
 # Sidebar
 st.sidebar.header("⚙️ 설정")
 
-col_api1, col_api2 = st.sidebar.columns(2)
-with col_api1:
-    tavily_key = st.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
-with col_api2:
-    claude_key = st.text_input("Claude API Key", type="password", help="Claude API 키 입력")
+tavily_key = st.sidebar.text_input("Tavily API Key", type="password", help="Tavily API 키 입력")
+openai_key = st.sidebar.text_input("OpenAI API Key", type="password", help="OpenAI API 키 입력 (번역용)")
 
 # History stats
 history = load_history()
@@ -571,8 +560,8 @@ with col_button2:
 if run_report:
     if not tavily_key:
         st.error("❌ 사이드바에 Tavily API 키를 입력하세요.")
-    elif not claude_key:
-        st.error("❌ 사이드바에 Claude API 키를 입력하세요.")
+    elif not openai_key:
+        st.error("❌ 사이드바에 OpenAI API 키를 입력하세요.")
     else:
         client = TavilyClient(api_key=tavily_key)
         history = load_history()
@@ -654,7 +643,7 @@ if run_report:
                             article['title'],
                             article['content'],
                             cat_name,
-                            claude_key
+                            openai_key
                         )
                     
                     # Article card
