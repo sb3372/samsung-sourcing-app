@@ -1,4 +1,13 @@
-import feedparser
+import sys
+import warnings
+warnings.filterwarnings('ignore')
+
+try:
+    import feedparser
+except ImportError:
+    # feedparser 대신 직접 RSS 파싱
+    feedparser = None
+
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
@@ -17,6 +26,9 @@ class NewsScraper:
     def fetch_rss_feed(self, search_query: str, lang: str, region: str) -> List[Dict]:
         """Google News RSS에서 기사 가져오기"""
         try:
+            if feedparser is None:
+                return []
+                
             encoded_query = requests.utils.quote(search_query)
             rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl={lang}&ceid={region}:kr"
             
