@@ -53,77 +53,6 @@ st.markdown("""
         font-size: 1rem;
     }
     
-    .article-card {
-        background: #1a1f2e;
-        border-left: 4px solid #0066ff;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        transition: all 0.3s ease;
-    }
-    
-    .article-card:hover {
-        box-shadow: 0 4px 16px rgba(0, 102, 255, 0.2);
-        transform: translateX(4px);
-    }
-    
-    .article-title {
-        color: #0066ff;
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-    
-    .article-meta {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        font-size: 0.85rem;
-    }
-    
-    .meta-badge {
-        background: rgba(0, 102, 255, 0.2);
-        color: #0066ff;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        display: inline-block;
-    }
-    
-    .language-badge {
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-    }
-    
-    .category-badge {
-        background: rgba(245, 158, 11, 0.2);
-        color: #f59e0b;
-    }
-    
-    .category-section {
-        margin-bottom: 2rem;
-    }
-    
-    .category-header {
-        background: linear-gradient(90deg, rgba(20, 40, 160, 0.3), rgba(0, 102, 255, 0.2));
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        border-left: 4px solid #1428a0;
-    }
-    
-    .category-header h2 {
-        color: #0066ff;
-        margin: 0;
-        font-size: 1.5rem;
-    }
-    
-    .category-header p {
-        color: #b0b8c1;
-        margin: 0.3rem 0 0 0;
-        font-size: 0.9rem;
-    }
-    
     .stButton>button {
         background: linear-gradient(90deg, #1428a0 0%, #0066ff 100%);
         color: white;
@@ -327,11 +256,13 @@ def translate_to_korean_cached(text):
     except Exception as e:
         return text
 
-# ===== EXTRACT KEY SENTENCES FROM CONTENT =====
-def extract_key_sentences(content):
+# ===== SMART CONTENT SUMMARIZATION =====
+def smart_summarize_content(title, content):
     """
-    Extract 3 key sentences from article content
-    Returns list of 3 meaningful sentences
+    Intelligently summarize content by:
+    1. Cleaning and processing text
+    2. Finding main sentences with important information
+    3. Extracting exactly 3 meaningful summary points
     """
     
     # Clean content
@@ -339,17 +270,53 @@ def extract_key_sentences(content):
     content = re.sub(r'\s+', ' ', content).strip()
     
     # Split into sentences
-    sentences = re.split(r'[.!?]+', content)
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+    sentences = re.split(r'(?<=[.!?])\s+', content)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 15 and len(s.strip()) < 300]
     
-    # Get first 3 meaningful sentences
-    key_sentences = sentences[:3]
+    if not sentences:
+        return [
+            "기사 내용을 상세히 읽기 위해 전체 기사 링크를 참고하세요.",
+            "주요 정보 및 통계는 원문에서 확인할 수 있습니다.",
+            "더 자세한 내용은 출처 기사를 통해 확인하시기 바랍니다."
+        ]
     
-    # Ensure we have 3 sentences
-    while len(key_sentences) < 3:
-        key_sentences.append("기사 내용을 참고하세요.")
+    # Score sentences based on keywords
+    def score_sentence(sent):
+        score = 0
+        # Prefer sentences with numbers
+        if re.search(r'\d+', sent):
+            score += 3
+        # Prefer longer sentences with more info
+        if len(sent.split()) > 8:
+            score += 2
+        # Prefer sentences with important keywords
+        keywords = ['growth', 'increase', 'decrease', 'change', 'innovation', 'technology', 'market', 'price', 'supply', 'demand', 'new', 'launch', 'partnership', 'agreement']
+        for keyword in keywords:
+            if keyword.lower() in sent.lower():
+                score += 1
+        return score
     
-    return key_sentences[:3]
+    # Score all sentences
+    scored_sentences = [(sent, score_sentence(sent)) for sent in sentences]
+    scored_sentences = sorted(scored_sentences, key=lambda x: x[1], reverse=True)
+    
+    # Get top 3 unique sentences, maintain order from original
+    top_3 = scored_sentences[:3]
+    
+    # Sort back to original order
+    top_3_dict = {sent: idx for idx, (sent, _) in enumerate(scored_sentences[:3])}
+    final_sentences = []
+    for idx, sent in enumerate(sentences):
+        if sent in top_3_dict:
+            final_sentences.append(sent)
+        if len(final_sentences) == 3:
+            break
+    
+    # Fallback if we couldn't get 3
+    if len(final_sentences) < 3:
+        final_sentences = [sent for sent, _ in top_3[:3]]
+    
+    return final_sentences[:3]
 
 # ===== MULTI-LANGUAGE SEARCH =====
 def perform_multilingual_search(category_config, category_name, tavily_client, history, max_results=3, debug_info=None):
@@ -562,9 +529,9 @@ if run_report:
                     
                     article_count += 1
                     
-                    # Extract key sentences
+                    # Smart summarize content
                     with st.spinner(f"📝 기사 {article_count} 분석 중..."):
-                        key_sentences = extract_key_sentences(article['content'])
+                        summary_points = smart_summarize_content(article['title'], article['content'])
                         
                         # Translate title to Korean
                         try:
@@ -580,16 +547,11 @@ if run_report:
                     with col_cat:
                         st.caption(f"📂 {cat_name}")
                     
-                    # Summary with 3 key points
-                    st.markdown("**□ 기사 요약**")
-                    st.markdown(f"- {key_sentences[0]}")
-                    st.markdown(f"  · 세부사항")
-                    
-                    st.markdown(f"- {key_sentences[1]}")
-                    st.markdown(f"  · 세부사항")
-                    
-                    st.markdown(f"- {key_sentences[2]}")
-                    st.markdown(f"  · 세부사항")
+                    # Summary with 3 key points from article
+                    st.markdown("**□**")
+                    st.markdown(f"- {summary_points[0]}")
+                    st.markdown(f"- {summary_points[1]}")
+                    st.markdown(f"- {summary_points[2]}")
                     
                     # Action buttons
                     col1, col2, col3 = st.columns([2, 1, 1])
