@@ -109,38 +109,31 @@ if st.session_state.articles:
     st.markdown("---")
     
     for idx, article in enumerate(st.session_state.articles):
-            for idx, article in enumerate(st.session_state.articles):
-        with st.container():  # border=True 제거
-            # 헤더
-            col1, col2, col3 = st.columns([1, 2, 1])
-            
-            with col1:
-                st.caption(f"📂 {article['category']}")
-            
-            with col2:
-                st.caption(f"🌍 {article['region']} | 🗣️ {LANGUAGE_NAMES.get(article['language'], article['language'])}")
-            
-            with col3:
-                if st.button("🔄", key=f"refresh_{idx}"):
-                    st.info("재분석 기능은 추후 추가됩니다.")
-            
-            st.divider()  # 구분선 추가
-            
-            # 제목
-            st.subheader(article["title"])
-            
-            # 요약
-            st.markdown("### 📝 요약")
-            st.markdown(article["summary"])
-            
-            # 소스 정보
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.caption(f"**출처:** {article['source']}")
-            with col2:
-                st.caption(f"**발행일:** {article['published'][:10]}")
-            with col3:
-                st.markdown(f"[🔗 원본](https://news.google.com/search?q=cache:{article['link']})")
+        st.subheader(article["title"])
+        
+        # 메타 정보
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.caption(f"📂 {article['category']}")
+        with col2:
+            st.caption(f"🌍 {article['region']}")
+        with col3:
+            st.caption(f"🗣️ {LANGUAGE_NAMES.get(article['language'], article['language'])}")
+        
+        # 요약
+        st.markdown("**요약:**")
+        st.markdown(article["summary"])
+        
+        # 소스 정보
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.caption(f"출처: {article['source']}")
+        with col2:
+            st.caption(f"발행: {article['published'][:10]}")
+        with col3:
+            st.markdown(f"[원본 기사]({article['link']})")
+        
+        st.divider()
 
 else:
     if st.session_state.api_key_set:
