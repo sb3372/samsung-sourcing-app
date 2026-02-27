@@ -20,6 +20,25 @@ class WebCrawler:
         self.timeout = 10
         self.processed_urls = set()
         self.url_lock = threading.Lock()
+        
+        # 유럽 키워드
+        self.europe_keywords = [
+            'europe', 'european', 'eu', 'germany', 'france', 'italy', 'spain',
+            'uk', 'britain', 'netherlands', 'belgium', 'sweden', 'denmark',
+            'poland', 'austria', 'switzerland', 'ireland', 'portugal',
+            'paris', 'berlin', 'london', 'amsterdam', 'stockholm', 'zurich',
+            'brussels', 'dublin', 'warsaw', 'prague', 'vienna',
+            'deutsche telekom', 'vodafone', 'swisscom', 'telefonica',
+            'infineon', 'siemens', 'sap', 'arm', 'asml', 'philips',
+        ]
+    
+    def is_europe_article(self, title: str) -> bool:
+        """유럽 관련 기사인지 확인"""
+        text = title.lower()
+        for keyword in self.europe_keywords:
+            if keyword in text:
+                return True
+        return False
     
     def crawl_website(self, website_config: Dict) -> List[Dict]:
         """
@@ -95,6 +114,10 @@ class WebCrawler:
                     if not title or len(title) < 10:
                         continue
                     
+                    # 🔒 유럽 기사인지 필터링
+                    if not self.is_europe_article(title):
+                        continue
+                    
                     # 링크 찾기
                     link = None
                     link_elem = article_elem.select_one(website_config['link_selector'])
@@ -124,11 +147,12 @@ class WebCrawler:
                             continue
                         self.processed_urls.add(link)
                     
-                    # 기사 정보 저장 (categories 없음)
+                    # 기사 정보 저장 (categories 포함)
                     article_data = {
                         'title_en': title,
                         'link': link,
                         'source': website_config['name'],
+                        'categories': website_config['categories'],
                         'crawled_at': datetime.now().isoformat(),
                     }
                     
