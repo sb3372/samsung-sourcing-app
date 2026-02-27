@@ -1,6 +1,5 @@
 import google.generativeai as genai
 import logging
-import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,54 +31,41 @@ class Categorizer:
 
 다음 기사 제목을 읽고, 10개 카테고리 중에서 가장 관련된 것을 정확히 1-2개만 선택하세요.
 
-만약 기술과 무관한 뉴스(정치, 연예, 스포츠, 자동차 등)라면, 그에 맞는 카테고리를 선택하거나 없으면 "기술 무관"이라고 적으세요.
-
 기사 제목: {title}
 
 10개 카테고리:
-1. Semiconductors - 반도체, 칩, 펍, 파운드리, 반도체 제조, 실리콘
-2. Raw Materials - 희토류, 광물, 리튬, 원자재, 채굴
-3. Advanced Materials - 그래핀, 나노기술, 특수 소재, 신소재
-4. Components - 센서, 디스플레이, LCD, OLED, 액추에이터, 부품, 컴포넌트
-5. Consumer Electronics - 스마트폰, 웨어러블, 스마트홈, 소비자 전자제품, 게임기
-6. Photonics & Quantum - 광자학, 양자컴퓨팅, 광기술, 양자, 레이저
-7. Connectivity/6G - 5G, 6G, 무선 통신, 네트워크, 통신
-8. Robotics - 로봇, 자동화, 산업용 로봇, 로보틱스
-9. Energy/Power - 배터리, 전력, 에너지 저장, 충전, 전기
-10. Sustainable/Circular Engineering - 순환경제, 지속가능성, E-폐기물, 수리권, ESG
+1. Semiconductors - 반도체, 칩, 펍, 파운드리
+2. Raw Materials - 희토류, 광물, 리튬, 원자재
+3. Advanced Materials - 그래핀, 나노기술, 특수 소재
+4. Components - 센서, 디스플레이, 액추에이터, 부품
+5. Consumer Electronics - 스마트폰, 웨어러블, 스마트홈
+6. Photonics & Quantum - 광자학, 양자컴퓨팅, 광기술
+7. Connectivity/6G - 5G, 6G, 무선 통신, 네트워크
+8. Robotics - 로봇, 자동화, 산업용 로봇
+9. Energy/Power - 배터리, 전력, 에너지 저장
+10. Sustainable/Circular Engineering - 순환경제, 지속가능성, E-폐기물
 
-응답 형식:
-카테고리: [카테고리명]
-
-예시:
-- "Quantum supremacy moves to the foundry" → 카테고리: Photonics & Quantum
-- "새로운 배터리 기술" → 카테고리: Energy/Power
-- "정치인이 상 받음" → 카테고리: 기술 무관"""
+응답 형식 (반드시 이 형식):
+카테고리: [카테고리명]"""
 
             response = self.model.generate_content(prompt)
             result_text = response.text.strip()
             
-            logger.info(f"AI 응답: {result_text[:100]}")
-            
-            # 기술 무관 확인
-            if "기술 무관" in result_text or "기술과 무관" in result_text:
-                logger.info(f"⏭️ 기술 무관 기사: {title[:50]}...")
-                return []  # 빈 리스트 반환 (필터링됨)
+            logger.info(f"분류 응답: {result_text}")
             
             # 파싱
             categories = []
             if "카테고리:" in result_text:
                 cat_part = result_text.split("카테고리:")[1].strip()
-                cat_part = cat_part.replace("[", "").replace("]", "").replace("、", ",")
+                cat_part = cat_part.replace("[", "").replace("]", "")
                 
                 cat_list = [c.strip() for c in cat_part.split(',')]
                 
                 for cat in cat_list:
-                    # 정확한 매칭
                     if cat in self.categories:
                         categories.append(cat)
-                    # 부분 매칭
                     else:
+                        # 부분 매칭
                         for valid_cat in self.categories:
                             if valid_cat.lower() in cat.lower() or cat.lower() in valid_cat.lower():
                                 if valid_cat not in categories:
@@ -89,14 +75,14 @@ class Categorizer:
             # 최대 2개만
             categories = categories[:2]
             
-            # 만약 분류 실패 = 빈 리스트
+            # 파싱 실패 시 기본값: Components (보수적)
             if not categories:
-                logger.warning(f"⚠️ 분류 실패: {title[:50]}... → 스킵")
-                return []  # 기본값 없음!
+                categories = ["Components"]
+                logger.warning(f"⚠️ 파싱 실패, 기본값 설정: {title[:50]}... → Components")
             
-            logger.info(f"✅ 분류: {title[:50]}... → {categories}")
+            logger.info(f"✅ 분류 완료: {title[:50]}... → {categories}")
             return categories
         
         except Exception as e:
             logger.error(f"❌ 분류 오류: {str(e)}")
-            return []  # 기본값 없음!
+            return ["Components"]  # 오류 시도 기본값
