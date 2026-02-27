@@ -69,7 +69,7 @@ class WebCrawler:
                 logger.warning(f"⚠️ {website_config['name']}: 기사 요소를 찾을 수 없음")
                 return []
             
-            # 각 기사 추출 (최대 50개 - 이전 20개에서 증가)
+            # 각 기사 추출
             for idx, article_elem in enumerate(article_elements[:50]):
                 try:
                     # 제목 찾기
@@ -124,12 +124,11 @@ class WebCrawler:
                             continue
                         self.processed_urls.add(link)
                     
-                    # 기사 정보 저장
+                    # 기사 정보 저장 (categories 없음)
                     article_data = {
                         'title_en': title,
                         'link': link,
                         'source': website_config['name'],
-                        'categories': website_config['categories'],
                         'crawled_at': datetime.now().isoformat(),
                     }
                     
