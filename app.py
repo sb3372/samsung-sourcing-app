@@ -4,6 +4,7 @@ import logging
 from config import WEBSITES, CATEGORIES
 from crawler import WebCrawler
 from deduplicator import Deduplicator
+from categorizer import Categorizer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,12 +20,23 @@ if "deduplicator" not in st.session_state:
 
 # 제목
 st.title("📰 Samsung 국제 조달센터")
-st.markdown("유럽 기술 뉴스")
+st.markdown("유럽 기술 뉴스 - AI 카테고리 분류")
 st.markdown("---")
 
 # 사이드바
 with st.sidebar:
     st.header("⚙️ 설정")
+    
+    # Gemini API 키
+    api_key = st.text_input(
+        "🔑 Gemini API 키",
+        type="password",
+        help="https://aistudio.google.com/app/apikey에서 발급"
+    )
+    
+    if api_key:
+        st.session_state.gemini_key = api_key
+        st.success("✅ API 준비 완료")
     
     st.markdown("---")
     
@@ -44,7 +56,9 @@ st.header("🔄 뉴스 수집")
 # REFRESH 버튼
 if st.button("🔄 새로운 기사 로드", use_container_width=True, type="primary"):
     
-    if not st.session_state.selected_categories:
+    if "gemini_key" not in st.session_state:
+        st.error("❌ API 키를 먼저 입력하세요")
+    elif not st.session_state.selected_categories:
         st.error("❌ 카테고리를 선택하세요")
     else:
         status_text = st.empty()
@@ -60,11 +74,34 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             logger.info(f"총 {len(all_articles)}개 기사 수집")
             status_text.text(f"✅ {len(all_articles)}개 기사 수집 완료")
             
-            # 2단계: 카테고리 필터링
+            # 2단계: AI로 카테고리 분류
+            status_text.text("🤖 AI 카테고리 분류 중...")
+            categorizer = Categorizer(st.session_state.gemini_key)
+            
+            categorized_articles = []
+            for idx, article in enumerate(all_articles):
+                status_text.text(f"분류 중: {idx + 1}/{len(all_articles)}")
+                
+                # AI로 카테고리 분류
+                ai_categories = categorizer.categorize_article(
+                    article['title_en'],
+                    article['source']
+                )
+                
+                # 분류된 카테고리로 업데이트
+                article['categories'] = ai_categories
+                categorized_articles.append(article)
+                
+                time.sleep(0.2)  # API 요청 간격
+            
+            logger.info(f"카테고리 분류 완료")
+            status_text.text(f"✅ 카테고리 분류 완료")
+            
+            # 3단계: 선택된 카테고리로 필터링
             status_text.text("📂 카테고리 필터링 중...")
             filtered_articles = []
             
-            for article in all_articles:
+            for article in categorized_articles:
                 # 선택된 카테고리와 겹치는지 확인
                 if any(cat in article['categories'] for cat in st.session_state.selected_categories):
                     filtered_articles.append(article)
@@ -72,7 +109,7 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             logger.info(f"필터링 후 {len(filtered_articles)}개 기사")
             status_text.text(f"📂 {len(filtered_articles)}개 기사 필터링 완료")
             
-            # 3단계: 중복 제거
+            # 4단계: 중복 제거
             status_text.text("🔍 중복 제거 중...")
             unique_articles = []
             
@@ -89,7 +126,7 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             logger.info(f"중복 제거 후 {len(unique_articles)}개 기사")
             status_text.text(f"✅ {len(unique_articles)}개 새 기사 발견")
             
-            # 4단계: 상위 10개만 선택
+            # 5단계: 상위 10개만 선택
             top_articles = unique_articles[:10]
             
             st.session_state.articles = top_articles
@@ -112,12 +149,13 @@ if st.session_state.articles:
     for idx, article in enumerate(st.session_state.articles, 1):
         with st.container():
             # 제목 (원문)
-            st.subheader(article['title_en'])
+            st.subheader(f"{idx}. {article['title_en']}")
             
             # 메타정보
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.caption(f"📂 {article['categories'][0] if article['categories'] else 'N/A'}")
+                categories_str = ", ".join(article['categories'])
+                st.caption(f"📂 {categories_str}")
             with col2:
                 st.caption(f"출처: {article['source']}")
             with col3:
