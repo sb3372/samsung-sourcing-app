@@ -51,37 +51,33 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             
             logger.info(f"총 {len(all_articles)}개 기사 수집")
             status_text.text(f"✅ {len(all_articles)}개 기사 수집 완료")
+            time.sleep(1)
             
-            # 2단계: 카테고리 필터링
-            status_text.text("📂 카테고리 필터링 중...")
-            filtered_articles = []
-            
-            for article in all_articles:
-                if any(cat in article['categories'] for cat in st.session_state.selected_categories):
-                    filtered_articles.append(article)
-            
-            logger.info(f"필터링 후 {len(filtered_articles)}개 기사")
-            status_text.text(f"📂 {len(filtered_articles)}개 기사 필터링 완료")
-            
-            # 3단계: 중복 제거
+            # 2단계: 중복 제거만 수행 (필터링 없음)
             status_text.text("🔍 중복 제거 중...")
             unique_articles = []
             
-            for article in filtered_articles:
+            for article in all_articles:
                 if not st.session_state.deduplicator.is_duplicate(article):
                     unique_articles.append(article)
-                    st.session_state.deduplicator.save_article({
-                        'title_en': article['title_en'],
-                        'link': article['link'],
-                        'source': article['source'],
-                        'categories': ','.join(article['categories'])
-                    })
             
             logger.info(f"중복 제거 후 {len(unique_articles)}개 기사")
             status_text.text(f"✅ {len(unique_articles)}개 새 기사 발견")
+            time.sleep(1)
             
-            # 4단계: 상위 10개만 선택
+            # 3단계: 새 기사를 CSV에 저장
+            status_text.text("💾 기사 저장 중...")
+            for article in unique_articles:
+                st.session_state.deduplicator.save_article({
+                    'title_en': article['title_en'],
+                    'link': article['link'],
+                    'source': article['source'],
+                    'categories': ','.join(article['categories'])
+                })
+            
+            # 4단계: 정확히 10개 선택
             top_articles = unique_articles[:10]
+            
             st.session_state.articles = top_articles
             
             time.sleep(1)
