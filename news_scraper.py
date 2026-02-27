@@ -66,7 +66,7 @@ class NewsScraper:
             return []
     
     def is_duplicate_title(self, title: str, threshold: float = 0.85) -> bool:
-        """제목 유사도로 중복 검사"""
+        """제목 유사도로 중복 검사 (85% 이상 = 중복)"""
         for existing_title in self.processed_titles:
             similarity = difflib.SequenceMatcher(None, title.lower(), existing_title.lower()).ratio()
             if similarity >= threshold:
@@ -74,35 +74,83 @@ class NewsScraper:
         return False
     
     def scrape_article(self, url: str) -> Optional[str]:
-        """웹사이트에서 기사 본문 추출"""
+        """웹사이트에서 기사 본문 추출 - 5가지 방법 사용"""
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
             }
-            response = requests.get(url, headers=headers, timeout=15)
+            response = requests.get(url, headers=headers, timeout=10)
             response.encoding = 'utf-8'
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
+            # 불필요한 요소 제거
+            for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript", "meta"]):
+                element.decompose()
             
-            paragraphs = soup.find_all(['p', 'article', 'main'])
-            text = ' '.join([p.get_text(strip=True) for p in paragraphs])
+            text = ""
             
-            if not text:
-                text = soup.get_text()
+            # 방법 1: article 태그
+            article = soup.find('article')
+            if article:
+                text = article.get_text()
+                if len(text) > 200:
+                    pass  # 성공
+                else:
+                    text = ""
             
+            # 방법 2: main 태그
+            if not text or len(text) < 200:
+                main = soup.find('main')
+                if main:
+                    text = main.get_text()
+                    if len(text) > 200:
+                        pass  # 성공
+                    else:
+                        text = ""
+            
+            # 방법 3: div class에서 content 찾기
+            if not text or len(text) < 200:
+                for div in soup.find_all('div', class_=lambda x: x and any(keyword in x.lower() for keyword in ['content', 'article', 'post', 'entry', 'body'])):
+                    candidate_text = div.get_text()
+                    if len(candidate_text) > 200:
+                        text = candidate_text
+                        break
+            
+            # 방법 4: 모든 p 태그 수집
+            if not text or len(text) < 200:
+                paragraphs = soup.find_all('p')
+                if paragraphs:
+                    text = ' '.join([p.get_text(strip=True) for p in paragraphs])
+            
+            # 방법 5: 전체 body에서 추출
+            if not text or len(text) < 200:
+                body = soup.find('body')
+                if body:
+                    text = body.get_text()
+                else:
+                    text = soup.get_text()
+            
+            # 텍스트 정제
             lines = (line.strip() for line in text.splitlines())
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             text = ' '.join(chunk for chunk in chunks if chunk)
             
-            if text and len(text) > 200:
+            # 최소 길이 체크
+            if len(text) > 150:
+                print(f"✅ 스크래핑 성공: {len(text)} 글자")
                 return text[:3000]
-            return None
+            else:
+                print(f"❌ 텍스트 부족: {len(text)} 글자")
+                return None
             
+        except requests.Timeout:
+            print(f"⏱️ 타임아웃: {url[:50]}...")
+            return None
         except Exception as e:
-            print(f"스크래핑 오류: {e}")
+            print(f"❌ 스크래핑 오류: {e}")
             return None
     
     def summarize_with_gemini(self, article_text: str) -> str:
@@ -117,29 +165,52 @@ class NewsScraper:
                 )
             )
             
-            return message.text.strip()
+            result = message.text.strip()
+            return result
             
         except Exception as e:
-            return f"요약 실패"
+            print(f"❌ Gemini 오류: {e}")
+            return f"요약_실패"
     
     def process_article(self, article: Dict) -> Optional[Dict]:
-        """기사 처리"""
+        """기사 처리 - 스크래핑 + Gemini 요약"""
+        # URL 중복 확인
         if article["link"] in self.processed_urls:
+            print(f"↺ 이미 처리됨: {article['title'][:50]}")
             return None
         
+        # 기사 추출
+        print(f"🔗 추출 시작: {article['title'][:60]}...")
         article_text = self.scrape_article(article["link"])
         if not article_text:
+            print(f"❌ 추출 실패: {article['title'][:50]}")
             return None
         
+        # Gemini 요약
+        print(f"📝 Gemini 요약 중...")
         summary = self.summarize_with_gemini(article_text)
+        print(f"📄 요약 결과: {summary[:100]}...")
         
-        if "NOT_RELEVANT_TO_PROCUREMENT" in summary or "INSUFFICIENT_DETAILS" in summary:
+        # 필터링 (더 관대하게)
+        if len(summary) < 50:
+            print(f"❌ 요약이 너무 짧음 ({len(summary)} 글자): {summary}")
             return None
         
-        if "요약 실패" in summary:
+        if "요약_실패" in summary:
+            print(f"❌ Gemini 요약 실패")
             return None
         
+        if "NOT_RELEVANT_TO_PROCUREMENT" in summary:
+            print(f"ⓘ 관련성 없음 (조달과 무관): {article['title'][:50]}")
+            return None
+        
+        if "INSUFFICIENT_DETAILS" in summary:
+            print(f"ⓘ 상세 정보 부족: {article['title'][:50]}")
+            return None
+        
+        # 성공!
         self.processed_urls.add(article["link"])
+        print(f"✓ 기사 추가 완료!")
         
         return {
             "title": article["title"],
