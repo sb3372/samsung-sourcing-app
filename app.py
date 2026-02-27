@@ -99,13 +99,16 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             logger.info(f"중복 제거 후 {len(unique_articles)}개 기사")
             status_text.text(f"✅ {len(unique_articles)}개 새 기사 발견")
             
-            st.session_state.articles = unique_articles
+            # 4단계: 상위 10개만 선택
+            top_articles = unique_articles[:10]
+            
+            st.session_state.articles = top_articles
             
             time.sleep(1)
             progress_bar.empty()
             status_text.empty()
             
-            st.success(f"✅ {len(unique_articles)}개 기사 로드 완료!")
+            st.success(f"✅ {len(top_articles)}개 기사 로드 완료!")
         
         except Exception as e:
             st.error(f"❌ 오류 발생: {str(e)}")
