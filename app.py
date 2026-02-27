@@ -1,5 +1,5 @@
 import streamlit as st
-from config import SEARCH_QUERIES, REGIONS, SYSTEM_PROMPT, LANGUAGE_NAMES
+from config import SEARCH_QUERIES, SYSTEM_PROMPT
 from news_scraper import NewsScraper
 import time
 
@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 st.title("📰 Samsung 국제 조달센터 뉴스 수집기")
-st.markdown("전문 기술 매트릭스 기반 유럽 뉴스 수집")
+st.markdown("유럽 다언어 뉴스 → 한국어 요약")
 st.markdown("---")
 
 # 세션 초기화
@@ -20,8 +20,6 @@ if "articles" not in st.session_state:
     st.session_state.articles = []
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = False
-if "debug_logs" not in st.session_state:
-    st.session_state.debug_logs = []
 
 # 사이드바
 with st.sidebar:
@@ -45,7 +43,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 카테고리 선택
+    # 카테고리 선택 (지역 선택 제거)
     st.header("📂 카테고리")
     selected_categories = []
     
@@ -55,96 +53,45 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 지역 선택
-    st.header("🌍 지역")
-    selected_regions = []
-    for region in REGIONS.keys():
-        if st.checkbox(region, value=True):
-            selected_regions.append(region)
-    
-    st.markdown("---")
-    
     # 수집 버튼
     if st.button("🔍 뉴스 수집", use_container_width=True, type="primary"):
         if not st.session_state.api_key_set:
             st.error("❌ API 키 입력 필요")
-        elif not selected_categories or not selected_regions:
-            st.error("❌ 카테고리/지역 선택 필요")
+        elif not selected_categories:
+            st.error("❌ 카테고리 선택 필요")
         else:
             st.session_state.articles = []
-            st.session_state.debug_logs = []
             
             progress_bar = st.progress(0)
             status_text = st.empty()
-            debug_area = st.empty()
             
-            total_queries = 0
-            for category in selected_categories:
-                for region in selected_regions:
-                    region_lang = REGIONS[region]["lang"]
-                    category_queries = SEARCH_QUERIES[category]["queries"]
-                    
-                    lang_key = region_lang + "_" + region
-                    if lang_key in category_queries:
-                        total_queries += len(category_queries[lang_key])
-                    elif "en_US" in category_queries:
-                        total_queries += len(category_queries["en_US"])
-            
+            # 선택된 카테고리의 총 쿼리 수 계산
+            total_queries = sum(len(SEARCH_QUERIES[cat]) for cat in selected_categories)
             current = 0
             
             for category in selected_categories:
-                category_queries = SEARCH_QUERIES[category]["queries"]
+                queries = SEARCH_QUERIES[category]
                 
-                for region in selected_regions:
-                    region_data = REGIONS[region]
-                    region_lang = region_data["lang"]
+                for query in queries:
+                    current += 1
+                    progress = current / total_queries
+                    progress_bar.progress(min(progress, 0.99))
+                    status_text.text(f"수집 중: {category} ({current}/{total_queries})")
                     
-                    # 해당 언어의 쿼리 가져오기
-                    lang_key = region_lang + "_" + region
-                    if lang_key in category_queries:
-                        queries = category_queries[lang_key]
-                    elif "en_US" in category_queries:
-                        queries = category_queries["en_US"]
-                    else:
-                        queries = []
+                    try:
+                        # RSS에서 기사 가져오기
+                        articles = st.session_state.scraper.fetch_rss_feed(query)
+                        
+                        for article in articles:
+                            processed = st.session_state.scraper.process_article(article)
+                            if processed:
+                                processed["category"] = category
+                                st.session_state.articles.append(processed)
                     
-                    for query in queries:
-                        current += 1
-                        progress = current / max(total_queries, 1)
-                        progress_bar.progress(min(progress, 0.99))
-                        status_text.text(f"수집: {category} - {region} ({current}/{total_queries})")
-                        
-                        try:
-                            st.session_state.debug_logs.append(f"🔍 쿼리: {query[:60]}... ({region})")
-                            debug_area.text_area(
-                                "📋 디버그 로그",
-                                "\n".join(st.session_state.debug_logs[-10:]),
-                                height=150,
-                                disabled=True
-                            )
-                            
-                            articles = st.session_state.scraper.fetch_rss_feed(
-                                query,
-                                region_lang,
-                                region_data["ceid"]
-                            )
-                            
-                            if articles:
-                                st.session_state.debug_logs.append(f"✅ {len(articles)}개 기사 발견")
-                            else:
-                                st.session_state.debug_logs.append(f"⚠️ 기사 없음")
-                            
-                            for article in articles:
-                                processed = st.session_state.scraper.process_article(article)
-                                if processed:
-                                    processed["category"] = category
-                                    st.session_state.articles.append(processed)
-                                    st.session_state.debug_logs.append(f"✓ 기사 추가: {processed['title'][:40]}...")
-                        
-                        except Exception as e:
-                            st.session_state.debug_logs.append(f"❌ 오류: {str(e)[:50]}")
-                        
-                        time.sleep(0.2)
+                    except Exception as e:
+                        print(f"오류: {e}")
+                    
+                    time.sleep(0.1)
             
             progress_bar.progress(1.0)
             status_text.empty()
@@ -152,16 +99,9 @@ with st.sidebar:
             if st.session_state.articles:
                 st.success(f"✅ {len(st.session_state.articles)}개 기사 수집 완료")
             else:
-                st.warning("⚠️ 수집된 기사 없음 - 디버그 로그 확인")
-                with st.expander("📋 전체 디버그 로그"):
-                    st.text_area(
-                        "로그",
-                        "\n".join(st.session_state.debug_logs),
-                        height=300,
-                        disabled=True
-                    )
+                st.warning("⚠️ 수집된 기사 없음")
 
-# 메인
+# 메인 콘텐츠
 if st.session_state.articles:
     st.header(f"📊 수집된 뉴스 ({len(st.session_state.articles)}개)")
     st.markdown("---")
@@ -169,24 +109,19 @@ if st.session_state.articles:
     for idx, article in enumerate(st.session_state.articles):
         st.subheader(article["title"])
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2 = st.columns(2)
         with col1:
             st.caption(f"📂 {article['category']}")
         with col2:
-            st.caption(f"🌍 {article['region']}")
-        with col3:
-            st.caption(f"🗣️ {LANGUAGE_NAMES.get(article['language'], article['language'])}")
-        with col4:
-            st.caption(f"📅 {article['published'][:10]}")
+            st.caption(f"📅 {article.get('published', 'N/A')[:10]}")
         
+        # 한국어 요약만 표시
         st.markdown(article["summary"])
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         with col1:
             st.caption(f"출처: {article['source']}")
         with col2:
-            st.caption(f"처리: {article['processed_at'][:19]}")
-        with col3:
             st.markdown(f"[🔗 원문]({article['link']})")
         
         st.divider()
