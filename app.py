@@ -4,7 +4,6 @@ import logging
 from config import WEBSITES, CATEGORIES
 from crawler import WebCrawler
 from deduplicator import Deduplicator
-from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ if "last_crawled_week" not in st.session_state:
     st.session_state.last_crawled_week = 0
 
 st.title("📱 Samsung Electronics Europe IPC")
-st.markdown("유럽 기술 뉴스 - 정확한 카테고리")
+st.markdown("유럽 기술 뉴스")
 st.divider()
 
 with st.sidebar:
@@ -66,7 +65,7 @@ if st.button("📥 시작 (1주일)", use_container_width=True, type="primary"):
             status = st.empty()
             
             try:
-                # 1단계: 크롤링 (AI/LLM 필터링 포함)
+                # 1단계: 크롤링
                 status.text(f"🔗 {st.session_state.week_range}주일 기사 크롤링 중...")
                 crawler = WebCrawler()
                 all_articles = crawler.crawl_all_websites(WEBSITES, max_workers=10)
