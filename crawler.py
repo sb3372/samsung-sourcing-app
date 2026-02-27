@@ -61,7 +61,7 @@ class WebCrawler:
                 
                 for selector in fallback_selectors:
                     article_elements = soup.select(selector)
-                    if len(article_elements) > 3:  # 최소 3개 이상 찾아야 유효
+                    if len(article_elements) > 3:
                         logger.info(f"📰 대체 selector '{selector}': {len(article_elements)}개 발견")
                         break
             
@@ -69,17 +69,16 @@ class WebCrawler:
                 logger.warning(f"⚠️ {website_config['name']}: 기사 요소를 찾을 수 없음")
                 return []
             
-            # 각 기사 추출
-            for idx, article_elem in enumerate(article_elements[:20]):
+            # 각 기사 추출 (최대 50개 - 이전 20개에서 증가)
+            for idx, article_elem in enumerate(article_elements[:50]):
                 try:
-                    # 제목 찾기 (여러 방법 시도)
+                    # 제목 찾기
                     title = None
                     title_elem = article_elem.select_one(website_config['title_selector'])
                     
                     if title_elem:
                         title = title_elem.get_text(strip=True)
                     else:
-                        # 대체 방법: 첫 번째 a 태그 또는 h2/h3
                         for tag in article_elem.select("a"):
                             text = tag.get_text(strip=True)
                             if len(text) > 10:
@@ -103,7 +102,6 @@ class WebCrawler:
                     if link_elem and link_elem.get('href'):
                         link = link_elem.get('href')
                     else:
-                        # 대체 방법: 첫 번째 a 태그의 href
                         for tag in article_elem.select("a"):
                             if tag.get('href'):
                                 link = tag.get('href')
