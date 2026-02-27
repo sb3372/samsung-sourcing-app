@@ -80,12 +80,6 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             for idx, article in enumerate(unique_articles):
                 status.text(f"🤖 분류 중: {idx + 1}/{len(unique_articles)}")
                 ai_categories = categorizer.categorize_article(article['title_en'])
-                
-                # ✅ 분류 실패한 기사는 스킵
-                if not ai_categories:
-                    logger.info(f"⏭️ 스킵: {article['title_en'][:50]}...")
-                    continue
-                
                 article['categories'] = ai_categories
                 categorized_articles.append(article)
                 time.sleep(0.2)
