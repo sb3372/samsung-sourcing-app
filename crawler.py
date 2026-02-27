@@ -4,6 +4,7 @@ import time
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,12 +22,6 @@ class WebCrawler:
     def crawl_website(self, website_config: Dict) -> List[Dict]:
         """
         웹사이트에서 기사 추출
-        
-        Args:
-            website_config: config.py의 WEBSITES 항목
-            
-        Returns:
-            기사 리스트 [{'title': '...', 'link': '...', 'source': '...', 'category': '...'}, ...]
         """
         try:
             logger.info(f"🔗 크롤링 시작: {website_config['name']}")
@@ -55,7 +50,7 @@ class WebCrawler:
                 return []
             
             # 각 기사 추출
-            for idx, article_elem in enumerate(article_elements[:20]):  # 사이트당 최대 20개
+            for idx, article_elem in enumerate(article_elements[:20]):
                 try:
                     # 제목 추출
                     title_elem = article_elem.select_one(website_config['title_selector'])
@@ -115,26 +110,36 @@ class WebCrawler:
             logger.error(f"❌ {website_config['name']}: {str(e)[:100]}")
             return []
     
-    def crawl_all_websites(self, websites: List[Dict]) -> List[Dict]:
+    def crawl_all_websites(self, websites: List[Dict], max_workers: int = 10) -> List[Dict]:
         """
-        모든 웹사이트에서 기사 크롤링
+        모든 웹사이트에서 기사 크롤링 (병렬 처리)
         
         Args:
             websites: config.py의 WEBSITES 리스트
+            max_workers: 동시에 처리할 웹사이트 개수 (기본 10개)
             
         Returns:
             모든 기사 통합 리스트
         """
         all_articles = []
         
-        logger.info(f"🚀 총 {len(websites)}개 웹사이트 크롤링 시작\n")
+        logger.info(f"🚀 총 {len(websites)}개 웹사이트 병렬 크롤링 시작 (동시 {max_workers}개)\n")
         
-        for idx, website in enumerate(websites):
-            articles = self.crawl_website(website)
-            all_articles.extend(articles)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 모든 웹사이트 작업 제출
+            future_to_website = {
+                executor.submit(self.crawl_website, website): website 
+                for website in websites
+            }
             
-            # 요청 간격 조절 (서버 부하 방지)
-            time.sleep(1)
+            # 완료된 작업부터 처리
+            for future in as_completed(future_to_website):
+                website = future_to_website[future]
+                try:
+                    articles = future.result()
+                    all_articles.extend(articles)
+                except Exception as e:
+                    logger.error(f"❌ {website['name']}: {str(e)}")
         
         logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
         return all_articles
