@@ -47,25 +47,15 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
     if not st.session_state.selected_categories:
         st.error("❌ 카테고리를 선택하세요")
     else:
-        progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
-            # 1단계: 웹 크롤링
-            status_text.text("🔗 웹사이트 크롤링 중...")
-            logger.info("크롤링 시작")
+            # 1단계: 병렬 웹 크롤링
+            status_text.text("🔗 웹사이트 병렬 크롤링 중... (최대 10개 동시 처리)")
+            logger.info("병렬 크롤링 시작")
             
             crawler = WebCrawler()
-            all_articles = []
-            
-            for idx, website in enumerate(WEBSITES):
-                progress = (idx + 1) / len(WEBSITES)
-                progress_bar.progress(min(progress, 0.99))
-                status_text.text(f"크롤링 중: {website['name']} ({idx + 1}/{len(WEBSITES)})")
-                
-                articles = crawler.crawl_website(website)
-                all_articles.extend(articles)
-                time.sleep(0.5)
+            all_articles = crawler.crawl_all_websites(WEBSITES, max_workers=10)
             
             logger.info(f"총 {len(all_articles)}개 기사 수집")
             status_text.text(f"✅ {len(all_articles)}개 기사 수집 완료")
@@ -105,7 +95,6 @@ if st.button("🔄 새로운 기사 로드", use_container_width=True, type="pri
             st.session_state.articles = top_articles
             
             time.sleep(1)
-            progress_bar.empty()
             status_text.empty()
             
             st.success(f"✅ {len(top_articles)}개 기사 로드 완료!")
