@@ -4,7 +4,6 @@ import logging
 from config import WEBSITES, CATEGORIES
 from crawler import WebCrawler
 from deduplicator import Deduplicator
-from categorizer import Categorizer
 from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
@@ -28,17 +27,11 @@ if "deduplicator" not in st.session_state:
     st.session_state.deduplicator = Deduplicator()
 
 st.title("📱 Samsung Electronics Europe IPC")
-st.markdown("유럽 기술 뉴스 - AI 기반 카테고리 분류")
+st.markdown("유럽 기술 뉴스")
 st.divider()
 
 with st.sidebar:
     st.header("⚙️ 설정")
-    
-    api_key = st.text_input("🔑 Gemini API 키", type="password")
-    if api_key:
-        st.session_state.gemini_key = api_key
-        st.success("API 연결됨")
-    
     st.divider()
     
     st.subheader("카테고리 선택")
@@ -51,9 +44,7 @@ with st.sidebar:
 
 if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
     
-    if "gemini_key" not in st.session_state:
-        st.error("API 키를 입력하세요")
-    elif not st.session_state.selected_categories:
+    if not st.session_state.selected_categories:
         st.error("카테고리를 선택하세요")
     else:
         status = st.empty()
@@ -73,23 +64,9 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             status.text(f"✅ {len(unique_articles)}개 새 기사")
             time.sleep(0.5)
             
-            status.text("🤖 AI 분류 중...")
-            categorizer = Categorizer(st.session_state.gemini_key)
-            categorized_articles = []
-            
-            for idx, article in enumerate(unique_articles):
-                status.text(f"🤖 분류 중: {idx + 1}/{len(unique_articles)}")
-                ai_categories = categorizer.categorize_article(article['title_en'])
-                article['categories'] = ai_categories
-                categorized_articles.append(article)
-                time.sleep(0.2)
-            
-            status.text(f"✅ {len(categorized_articles)}개 기사 분류 완료")
-            time.sleep(0.5)
-            
             status.text("📂 필터링 중...")
             filtered_articles = []
-            for article in categorized_articles:
+            for article in unique_articles:
                 if any(cat in article['categories'] for cat in st.session_state.selected_categories):
                     filtered_articles.append(article)
             status.text(f"✅ {len(filtered_articles)}개 기사 필터링")
