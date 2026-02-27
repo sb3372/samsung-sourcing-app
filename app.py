@@ -12,10 +12,8 @@ logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Samsung Electronics Europe IPC", page_icon="📱", layout="wide")
 
-# 간단한 스타일
 st.markdown("""
     <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .article-title { font-size: 1.2rem; font-weight: 600; color: #1e88e5; margin-bottom: 0.5rem; }
     .article-meta { font-size: 0.9rem; color: #666; margin-bottom: 0.8rem; }
     .article-source { background: #e3f2fd; padding: 0.3rem 0.8rem; border-radius: 4px; display: inline-block; margin-right: 0.5rem; }
@@ -29,12 +27,10 @@ if "articles" not in st.session_state:
 if "deduplicator" not in st.session_state:
     st.session_state.deduplicator = Deduplicator()
 
-# 타이틀
 st.title("📱 Samsung Electronics Europe IPC")
 st.markdown("유럽 기술 뉴스 - AI 기반 카테고리 분류")
 st.divider()
 
-# 사이드바 - 설정만
 with st.sidebar:
     st.header("⚙️ 설정")
     
@@ -53,7 +49,6 @@ with st.sidebar:
     
     st.session_state.selected_categories = selected_categories
 
-# 메인 - 버튼만
 if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
     
     if "gemini_key" not in st.session_state:
@@ -64,14 +59,12 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
         status = st.empty()
         
         try:
-            # 크롤링
             status.text("🔗 웹사이트 크롤링 중...")
             crawler = WebCrawler()
             all_articles = crawler.crawl_all_websites(WEBSITES, max_workers=10)
             status.text(f"✅ {len(all_articles)}개 기사 수집")
             time.sleep(0.5)
             
-            # 중복 제거
             status.text("🔍 중복 제거 중...")
             unique_articles = []
             for article in all_articles:
@@ -80,20 +73,26 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             status.text(f"✅ {len(unique_articles)}개 새 기사")
             time.sleep(0.5)
             
-            # AI 분류
             status.text("🤖 AI 분류 중...")
             categorizer = Categorizer(st.session_state.gemini_key)
             categorized_articles = []
+            
             for idx, article in enumerate(unique_articles):
                 status.text(f"🤖 분류 중: {idx + 1}/{len(unique_articles)}")
                 ai_categories = categorizer.categorize_article(article['title_en'])
+                
+                # ✅ 분류 실패한 기사는 스킵
+                if not ai_categories:
+                    logger.info(f"⏭️ 스킵: {article['title_en'][:50]}...")
+                    continue
+                
                 article['categories'] = ai_categories
                 categorized_articles.append(article)
                 time.sleep(0.2)
-            status.text("✅ 분류 완료")
+            
+            status.text(f"✅ {len(categorized_articles)}개 기사 분류 완료")
             time.sleep(0.5)
             
-            # 필터링
             status.text("📂 필터링 중...")
             filtered_articles = []
             for article in categorized_articles:
@@ -102,7 +101,6 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             status.text(f"✅ {len(filtered_articles)}개 기사 필터링")
             time.sleep(0.5)
             
-            # 다양한 소스에서 10개 선택
             status.text("🎯 기사 선택 중...")
             articles_by_source = defaultdict(list)
             for article in filtered_articles:
@@ -128,7 +126,6 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             
             top_articles = final_articles[:10]
             
-            # CSV 저장
             for article in top_articles:
                 st.session_state.deduplicator.save_article({
                     'title_en': article['title_en'],
@@ -145,7 +142,6 @@ if st.button("🔄 기사 로드", use_container_width=True, type="primary"):
             st.error(f"오류: {str(e)}")
             logger.error(f"오류: {str(e)}")
 
-# 기사 표시
 st.divider()
 
 if st.session_state.articles:
