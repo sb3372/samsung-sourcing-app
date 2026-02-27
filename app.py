@@ -5,7 +5,6 @@ from config import WEBSITES, CATEGORIES
 from crawler import WebCrawler
 from categorizer import Categorizer
 from deduplicator import Deduplicator
-from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,14 +21,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-if "cached_articles" not in st.session_state:
-    st.session_state.cached_articles = []  # 크롤링 결과 캐시
-if "displayed_articles" not in st.session_state:
-    st.session_state.displayed_articles = []  # 표시할 기사
+# 세션 상태 초기화
+if "all_articles" not in st.session_state:
+    st.session_state.all_articles = []  # 크롤링 + 분류된 모든 기사
+if "current_page" not in st.session_state:
+    st.session_state.current_page = 0
 if "week_range" not in st.session_state:
-    st.session_state.week_range = 1  # 1주일, 2주일, 3주일...
+    st.session_state.week_range = 1
 if "deduplicator" not in st.session_state:
     st.session_state.deduplicator = Deduplicator()
+if "last_crawled_week" not in st.session_state:
+    st.session_state.last_crawled_week = 0
 
 st.title("📱 Samsung Electronics Europe IPC")
 st.markdown("유럽 기술 뉴스 - AI 카테고리 분류")
@@ -53,128 +55,94 @@ with st.sidebar:
     
     st.session_state.selected_categories = selected_categories
 
-col1, col2 = st.columns([3, 1])
-
+# 상태 표시
+col1, col2, col3 = st.columns(3)
 with col1:
-    st.header("🔄 뉴스 수집")
-
+    st.metric("전체 기사", len(st.session_state.all_articles))
 with col2:
-    if st.button("🔄 처음부터", use_container_width=True):
-        st.session_state.cached_articles = []
-        st.session_state.displayed_articles = []
-        st.session_state.week_range = 1
-        st.rerun()
+    st.metric("현재 페이지", st.session_state.current_page + 1)
+with col3:
+    st.metric("조회 범위", f"{st.session_state.week_range}주일")
+
+st.divider()
 
 # 크롤링 버튼
-if st.button("📥 기사 로드", use_container_width=True, type="primary"):
-    
+if st.button("📥 시작 (1주일)", use_container_width=True, type="primary"):
     if "gemini_key" not in st.session_state:
         st.error("API 키를 입력하세요")
     elif not st.session_state.selected_categories:
         st.error("카테고리를 선택하세요")
     else:
-        status = st.empty()
-        
-        try:
-            status.text(f"🔗 {st.session_state.week_range}주일 기사 크롤링 중...")
-            crawler = WebCrawler()
-            all_articles = crawler.crawl_all_websites(WEBSITES, max_workers=10)
-            status.text(f"✅ {len(all_articles)}개 기사 수집")
-            time.sleep(0.5)
+        # 새로운 주일 범위로 크롤링해야 할 때만
+        if st.session_state.last_crawled_week != st.session_state.week_range:
+            status = st.empty()
             
-            # 캐시에 추가 (새 기사만)
-            for article in all_articles:
-                if not st.session_state.deduplicator.is_duplicate(article):
-                    st.session_state.cached_articles.append(article)
-            
-            logger.info(f"캐시됨: {len(st.session_state.cached_articles)}개")
-            status.text(f"✅ 캐시됨: {len(st.session_state.cached_articles)}개")
-            time.sleep(0.5)
-            
-            # AI 분류
-            status.text("🤖 AI 분류 중...")
-            categorizer = Categorizer(st.session_state.gemini_key)
-            
-            categorized_articles = []
-            for idx, article in enumerate(st.session_state.cached_articles):
-                if 'categories' not in article or not article['categories']:
-                    status.text(f"🤖 분류 중: {idx + 1}/{len(st.session_state.cached_articles)}")
+            try:
+                # 1단계: 크롤링
+                status.text(f"🔗 {st.session_state.week_range}주일 기사 크롤링 중...")
+                crawler = WebCrawler()
+                all_articles = crawler.crawl_all_websites(WEBSITES, max_workers=10)
+                status.text(f"✅ {len(all_articles)}개 기사 수집")
+                time.sleep(0.5)
+                
+                # 2단계: 중복 제거
+                status.text("🔍 중복 제거 중...")
+                unique_articles = []
+                for article in all_articles:
+                    if not st.session_state.deduplicator.is_duplicate(article):
+                        unique_articles.append(article)
+                status.text(f"✅ {len(unique_articles)}개 새 기사")
+                time.sleep(0.5)
+                
+                # 3단계: AI 분류
+                status.text("🤖 AI 분류 중...")
+                categorizer = Categorizer(st.session_state.gemini_key)
+                
+                categorized_articles = []
+                for idx, article in enumerate(unique_articles):
+                    status.text(f"🤖 분류 중: {idx + 1}/{len(unique_articles)}")
                     ai_categories = categorizer.categorize_article(article['title_en'])
                     article['categories'] = ai_categories
-                    time.sleep(0.2)
+                    categorized_articles.append(article)
+                    time.sleep(0.1)
                 
-                categorized_articles.append(article)
-            
-            st.session_state.cached_articles = categorized_articles
-            status.text("✅ 분류 완료")
-            time.sleep(0.5)
-            
-            # 필터링 (선택한 카테고리만)
-            status.text("📂 필터링 중...")
-            filtered_articles = []
-            for article in st.session_state.cached_articles:
-                if any(cat in article.get('categories', []) for cat in st.session_state.selected_categories):
-                    filtered_articles.append(article)
-            
-            status.text(f"✅ {len(filtered_articles)}개 기사 필터링")
-            time.sleep(0.5)
-            
-            # 다양한 소스에서 10개 선택
-            articles_by_source = defaultdict(list)
-            for article in filtered_articles:
-                articles_by_source[article['source']].append(article)
-            
-            final_articles = []
-            source_index = defaultdict(int)
-            
-            while len(final_articles) < 10 and len(articles_by_source) > 0:
-                for source in list(articles_by_source.keys()):
-                    if len(final_articles) >= 10:
-                        break
-                    if source_index[source] < len(articles_by_source[source]):
-                        article = articles_by_source[source][source_index[source]]
-                        final_articles.append(article)
-                        source_index[source] += 1
+                status.text("✅ 분류 완료")
+                time.sleep(0.5)
                 
-                if len(final_articles) < 10:
-                    for source in list(articles_by_source.keys()):
-                        source_index[source] = 0
+                # 4단계: 선택 카테고리 필터링
+                status.text("📂 필터링 중...")
+                filtered_articles = []
+                for article in categorized_articles:
+                    if any(cat in article.get('categories', []) for cat in st.session_state.selected_categories):
+                        filtered_articles.append(article)
+                
+                status.text(f"✅ {len(filtered_articles)}개 기사 필터링")
+                time.sleep(0.5)
+                
+                st.session_state.all_articles = filtered_articles
+                st.session_state.current_page = 0
+                st.session_state.last_crawled_week = st.session_state.week_range
+                
+                status.empty()
+                st.success(f"✅ {len(filtered_articles)}개 기사 준비 완료!")
+                st.rerun()
             
-            st.session_state.displayed_articles = final_articles[:10]
-            
-            # CSV 저장
-            for article in st.session_state.displayed_articles:
-                st.session_state.deduplicator.save_article({
-                    'title_en': article['title_en'],
-                    'link': article['link'],
-                    'source': article['source'],
-                    'categories': ','.join(article.get('categories', []))
-                })
-            
-            status.empty()
-            st.success(f"✅ {len(st.session_state.displayed_articles)}개 기사 준비 완료!")
-            
-            # 다음 주일 클릭 유도
-            if len(st.session_state.cached_articles) < 50:
-                st.info(f"💡 기사가 부족하면 '주일 확장' 버튼을 클릭하세요")
-        
-        except Exception as e:
-            st.error(f"오류: {str(e)}")
-            logger.error(f"오류: {str(e)}")
-
-# 주일 확장 버튼
-if st.button("📅 주일 확장 (더 많은 기사)", use_container_width=True):
-    st.session_state.week_range += 1
-    st.info(f"다음 조회는 {st.session_state.week_range}주일 범위로 진행됩니다")
+            except Exception as e:
+                st.error(f"오류: {str(e)}")
+                logger.error(f"오류: {str(e)}")
 
 st.divider()
 
-# 기사 표시
-if st.session_state.displayed_articles:
-    st.subheader(f"📰 기사 ({len(st.session_state.displayed_articles)}개)")
+# 기사 표시 (10개씩)
+if st.session_state.all_articles:
+    start_idx = st.session_state.current_page * 10
+    end_idx = start_idx + 10
+    page_articles = st.session_state.all_articles[start_idx:end_idx]
     
-    for idx, article in enumerate(st.session_state.displayed_articles, 1):
-        st.markdown(f'<div class="article-title">{idx}. {article["title_en"]}</div>', unsafe_allow_html=True)
+    st.subheader(f"📰 기사 (페이지 {st.session_state.current_page + 1}/{(len(st.session_state.all_articles) + 9) // 10})")
+    
+    for idx, article in enumerate(page_articles, 1):
+        st.markdown(f'<div class="article-title">{start_idx + idx}. {article["title_en"]}</div>', unsafe_allow_html=True)
         
         meta_html = f'<div class="article-meta">'
         meta_html += f'<span class="article-source">{article["source"]}</span>'
@@ -185,6 +153,43 @@ if st.session_state.displayed_articles:
         
         st.markdown(f'[🔗 원문 읽기]({article["link"]})')
         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        
+        # CSV 저장
+        st.session_state.deduplicator.save_article({
+            'title_en': article['title_en'],
+            'link': article['link'],
+            'source': article['source'],
+            'categories': ','.join(article.get('categories', []))
+        })
+    
+    # 페이지네이션
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.session_state.current_page > 0:
+            if st.button("⬅️ 이전 페이지", use_container_width=True):
+                st.session_state.current_page -= 1
+                st.rerun()
+    
+    with col2:
+        if end_idx < len(st.session_state.all_articles):
+            if st.button("➡️ 다음 페이지", use_container_width=True):
+                st.session_state.current_page += 1
+                st.rerun()
+    
+    with col3:
+        if end_idx >= len(st.session_state.all_articles) and st.session_state.week_range < 4:
+            if st.button("📅 주일 확장", use_container_width=True):
+                st.session_state.week_range += 1
+                st.rerun()
+    
+    with col4:
+        if st.button("🔄 처음부터", use_container_width=True):
+            st.session_state.all_articles = []
+            st.session_state.current_page = 0
+            st.session_state.week_range = 1
+            st.session_state.last_crawled_week = 0
+            st.rerun()
 
 else:
-    st.info("기사를 로드하려면 '기사 로드' 버튼을 클릭하세요")
+    st.info("📥 '시작 (1주일)' 버튼을 클릭하여 기사를 로드하세요")
