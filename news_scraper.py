@@ -5,7 +5,6 @@ warnings.filterwarnings('ignore')
 try:
     import feedparser
 except ImportError:
-    # feedparser 대신 직접 RSS 파싱
     feedparser = None
 
 import requests
@@ -20,7 +19,7 @@ class NewsScraper:
         self.gemini_api_key = gemini_api_key
         self.system_prompt = system_prompt
         genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.model = genai.GenerativeModel("gemini-pro")  # gemini-1.5-flash → gemini-pro
         self.processed_urls = set()
         
     def fetch_rss_feed(self, search_query: str, lang: str, region: str) -> List[Dict]:
@@ -104,7 +103,7 @@ class NewsScraper:
         
         summary = self.summarize_with_gemini(article_text)
         
-        if "NOT_RELEVANT" in summary:
+        if "NOT_RELEVANT" in summary or "오류" in summary:
             return None
         
         self.processed_urls.add(article["link"])
