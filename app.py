@@ -8,16 +8,16 @@ st.markdown("---")
 
 # 카테고리
 CATEGORIES = [
-    "반도체 (고전 & 차세대)",
-    "원자재 (희토류 & 채광)",
-    "첨단소재 (그래핀, 나노기술, CMF)",
-    "컴포넌트 (센서, 디스플레이, 액추에이터)",
-    "소비자전자 (모바일, 홈, 웨어러블)",
-    "포토닉스 & 양자",
-    "연결성/6G",
-    "로봇공학",
-    "에너지/전력 (배터리 & 에너지 수확)",
-    "지속가능/순환 공학"
+    "Semiconductors",
+    "Raw Materials",
+    "Advanced Materials",
+    "Components",
+    "Consumer Electronics",
+    "Photonics & Quantum",
+    "Connectivity/6G",
+    "Robotics",
+    "Energy/Power",
+    "Sustainable/Circular Engineering"
 ]
 
 # 세션 상태
