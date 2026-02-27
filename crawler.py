@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class WebCrawler:
         }
         self.timeout = 10
         self.processed_urls = set()
+        self.url_lock = threading.Lock()  # 🔒 스레드 안전성 추가
     
     def crawl_website(self, website_config: Dict) -> List[Dict]:
         """
@@ -78,11 +80,11 @@ class WebCrawler:
                         base_url = website_config['url'].rstrip('/')
                         link = base_url + '/' + link
                     
-                    # 중복 확인
-                    if link in self.processed_urls:
-                        continue
-                    
-                    self.processed_urls.add(link)
+                    # 🔒 스레드 안전하게 중복 확인
+                    with self.url_lock:
+                        if link in self.processed_urls:
+                            continue
+                        self.processed_urls.add(link)
                     
                     # 기사 정보 저장
                     article_data = {
@@ -138,6 +140,7 @@ class WebCrawler:
                 try:
                     articles = future.result()
                     all_articles.extend(articles)
+                    logger.info(f"✅ {website['name']}: {len(articles)}개 기사 추가")
                 except Exception as e:
                     logger.error(f"❌ {website['name']}: {str(e)}")
         
