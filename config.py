@@ -1,17 +1,17 @@
 """
-50개 웹사이트 + 10개 카테고리 매핑
-각 사이트마다 수집할 선택자(CSS Selector) 정의
+50개 웹사이트 + 10개 카테고리 정확 매핑
 """
 
 WEBSITES = [
+    # 1. 반도체 중심 사이트
     {
         "name": "New Electronics",
         "url": "https://www.newelectronics.co.uk/",
         "news_page": "https://www.newelectronics.co.uk/news/",
-        "article_selector": "article.news-item",
+        "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Energy/Power"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "EE News Europe",
@@ -20,7 +20,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Semiconductors", "Advanced Materials", "Components"],
+        "categories": ["Semiconductors", "Components"],
     },
     {
         "name": "Evertiq",
@@ -29,7 +29,7 @@ WEBSITES = [
         "article_selector": "div.news-item",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Energy/Power"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "ELE Times",
@@ -38,7 +38,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Robotics"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "EE Times",
@@ -47,7 +47,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Advanced Materials", "Photonics & Quantum"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "Euronews",
@@ -56,7 +56,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Energy/Power", "Sustainable/Circular Engineering"],
+        "categories": ["Energy/Power", "Sustainable/Circular Engineering"],
     },
     {
         "name": "Sifted",
@@ -65,7 +65,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Robotics", "Connectivity/6G"],
+        "categories": ["Consumer Electronics", "Connectivity/6G"],
     },
     {
         "name": "TrendForce",
@@ -74,7 +74,7 @@ WEBSITES = [
         "article_selector": "div.news-box",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Semiconductors", "Components", "Energy/Power"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "Tech.eu",
@@ -83,7 +83,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Consumer Electronics", "Connectivity/6G"],
+        "categories": ["Robotics", "Consumer Electronics"],
     },
     {
         "name": "TechXplore",
@@ -92,7 +92,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Photonics & Quantum", "Advanced Materials", "Robotics"],
+        "categories": ["Photonics & Quantum", "Advanced Materials"],
     },
     {
         "name": "ACM TechNews",
@@ -101,7 +101,7 @@ WEBSITES = [
         "article_selector": "div.story",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Photonics & Quantum", "Connectivity/6G", "Robotics"],
+        "categories": ["Photonics & Quantum", "Connectivity/6G"],
     },
     {
         "name": "t3n",
@@ -110,7 +110,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Robotics", "Energy/Power"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "EPP Europe News",
@@ -119,7 +119,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Sustainable/Circular Engineering"],
+        "categories": ["Semiconductors", "Sustainable/Circular Engineering"],
     },
     {
         "name": "Industry Europe",
@@ -128,7 +128,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Energy/Power", "Sustainable/Circular Engineering"],
+        "categories": ["Robotics", "Energy/Power"],
     },
     {
         "name": "GlobeNewswire",
@@ -137,7 +137,7 @@ WEBSITES = [
         "article_selector": "div.news-release",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Raw Materials", "Energy/Power"],
+        "categories": ["Semiconductors"],
     },
     {
         "name": "SiliconANGLE",
@@ -146,7 +146,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Consumer Electronics", "Robotics"],
+        "categories": ["Semiconductors", "Consumer Electronics"],
     },
     {
         "name": "World of Industries",
@@ -155,7 +155,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Advanced Materials", "Sustainable/Circular Engineering"],
+        "categories": ["Robotics", "Advanced Materials"],
     },
     {
         "name": "Semiconductor Engineering",
@@ -164,7 +164,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Advanced Materials", "Components"],
+        "categories": ["Semiconductors", "Advanced Materials"],
     },
     {
         "name": "Reuters",
@@ -173,7 +173,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Semiconductors", "Energy/Power", "Consumer Electronics"],
+        "categories": ["Semiconductors", "Energy/Power"],
     },
     {
         "name": "Handelsblatt",
@@ -182,7 +182,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Energy/Power", "Robotics"],
+        "categories": ["Energy/Power", "Sustainable/Circular Engineering"],
     },
     {
         "name": "EU-Startups",
@@ -191,7 +191,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Photonics & Quantum", "Robotics", "Advanced Materials"],
+        "categories": ["Photonics & Quantum", "Robotics"],
     },
     {
         "name": "The Next Web",
@@ -200,7 +200,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Robotics"],
+        "categories": ["Consumer Electronics", "Connectivity/6G"],
     },
     {
         "name": "The Register",
@@ -209,7 +209,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Connectivity/6G", "Energy/Power"],
+        "categories": ["Semiconductors", "Connectivity/6G"],
     },
     {
         "name": "Electronics Weekly",
@@ -218,7 +218,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Components", "Semiconductors", "Energy/Power"],
+        "categories": ["Components", "Semiconductors"],
     },
     {
         "name": "Science Business",
@@ -227,7 +227,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Photonics & Quantum", "Advanced Materials", "Connectivity/6G"],
+        "categories": ["Photonics & Quantum", "Advanced Materials"],
     },
     {
         "name": "Deep Tech Alliance",
@@ -236,7 +236,7 @@ WEBSITES = [
         "article_selector": "div.news-item",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Photonics & Quantum", "Robotics", "Advanced Materials"],
+        "categories": ["Photonics & Quantum", "Robotics"],
     },
     {
         "name": "Silicon Canals",
@@ -245,7 +245,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Robotics", "Connectivity/6G"],
+        "categories": ["Consumer Electronics", "Robotics"],
     },
     {
         "name": "Heise (EN)",
@@ -254,7 +254,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Consumer Electronics", "Connectivity/6G"],
+        "categories": ["Semiconductors", "Consumer Electronics"],
     },
     {
         "name": "IEN Europe",
@@ -263,7 +263,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Components", "Advanced Materials"],
+        "categories": ["Robotics", "Components"],
     },
     {
         "name": "Industry EMEA",
@@ -272,7 +272,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Energy/Power", "Sustainable/Circular Engineering"],
+        "categories": ["Robotics", "Energy/Power"],
     },
     {
         "name": "Horizon Magazine",
@@ -281,7 +281,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Photonics & Quantum", "Advanced Materials", "Semiconductors"],
+        "categories": ["Photonics & Quantum", "Advanced Materials"],
     },
     {
         "name": "EIT News",
@@ -290,7 +290,7 @@ WEBSITES = [
         "article_selector": "div.news-item",
         "title_selector": "h3 a",
         "link_selector": "h3 a",
-        "categories": ["Photonics & Quantum", "Energy/Power", "Connectivity/6G"],
+        "categories": ["Photonics & Quantum", "Energy/Power"],
     },
     {
         "name": "IT Pro",
@@ -299,7 +299,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Robotics"],
+        "categories": ["Consumer Electronics", "Connectivity/6G"],
     },
     {
         "name": "ElektronikNet",
@@ -308,7 +308,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Energy/Power"],
+        "categories": ["Semiconductors", "Components"],
     },
     {
         "name": "All-Electronics",
@@ -317,7 +317,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Components", "Semiconductors", "Energy/Power"],
+        "categories": ["Components", "Semiconductors"],
     },
     {
         "name": "Elektronik News",
@@ -326,7 +326,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Components", "Advanced Materials"],
+        "categories": ["Semiconductors", "Advanced Materials"],
     },
     {
         "name": "Heise (DE)",
@@ -335,7 +335,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Consumer Electronics", "Connectivity/6G"],
+        "categories": ["Semiconductors", "Consumer Electronics"],
     },
     {
         "name": "Golem",
@@ -344,7 +344,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Components", "Connectivity/6G"],
+        "categories": ["Consumer Electronics", "Components"],
     },
     {
         "name": "ComputerBase",
@@ -353,7 +353,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Consumer Electronics", "Components"],
+        "categories": ["Semiconductors", "Consumer Electronics"],
     },
     {
         "name": "Usine Digitale",
@@ -362,7 +362,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Advanced Materials", "Sustainable/Circular Engineering"],
+        "categories": ["Robotics", "Sustainable/Circular Engineering"],
     },
     {
         "name": "Numerama",
@@ -371,7 +371,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Energy/Power"],
+        "categories": ["Consumer Electronics", "Energy/Power"],
     },
     {
         "name": "Frandroid",
@@ -380,7 +380,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Components", "Energy/Power"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "Tweakers",
@@ -389,7 +389,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Semiconductors", "Components"],
+        "categories": ["Consumer Electronics", "Components"],
     },
     {
         "name": "Xataka",
@@ -398,7 +398,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Components"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "HDBlog",
@@ -407,7 +407,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Components", "Energy/Power"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "NyTeknik",
@@ -416,7 +416,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Energy/Power", "Connectivity/6G"],
+        "categories": ["Semiconductors", "Energy/Power"],
     },
     {
         "name": "ComputerWeekly",
@@ -425,7 +425,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Connectivity/6G", "Consumer Electronics"],
+        "categories": ["Semiconductors", "Consumer Electronics"],
     },
     {
         "name": "The Recursive",
@@ -434,7 +434,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Advanced Materials", "Photonics & Quantum"],
+        "categories": ["Robotics", "Advanced Materials"],
     },
     {
         "name": "Electronic Specifier",
@@ -443,7 +443,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Components", "Semiconductors", "Energy/Power"],
+        "categories": ["Components", "Semiconductors"],
     },
     {
         "name": "Drives & Controls",
@@ -452,7 +452,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Components", "Energy/Power"],
+        "categories": ["Robotics", "Components"],
     },
     {
         "name": "CIE Online",
@@ -461,7 +461,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Components", "Semiconductors", "Advanced Materials"],
+        "categories": ["Components", "Semiconductors"],
     },
     {
         "name": "UK Tech News",
@@ -470,7 +470,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Robotics"],
+        "categories": ["Consumer Electronics", "Connectivity/6G"],
     },
     {
         "name": "Euractiv",
@@ -479,7 +479,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Semiconductors", "Energy/Power", "Sustainable/Circular Engineering"],
+        "categories": ["Semiconductors", "Energy/Power"],
     },
     {
         "name": "Industrie Magazin",
@@ -488,7 +488,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Robotics", "Advanced Materials", "Sustainable/Circular Engineering"],
+        "categories": ["Robotics", "Sustainable/Circular Engineering"],
     },
     {
         "name": "Punto Informatico",
@@ -497,7 +497,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Semiconductors", "Connectivity/6G"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "Computerworld",
@@ -506,7 +506,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Connectivity/6G", "Robotics"],
+        "categories": ["Consumer Electronics", "Connectivity/6G"],
     },
     {
         "name": "Computerworld DK",
@@ -515,7 +515,7 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Consumer Electronics", "Semiconductors", "Components"],
+        "categories": ["Consumer Electronics"],
     },
     {
         "name": "Fintech News CH",
@@ -524,11 +524,11 @@ WEBSITES = [
         "article_selector": "article",
         "title_selector": "h2 a",
         "link_selector": "h2 a",
-        "categories": ["Connectivity/6G", "Energy/Power", "Sustainable/Circular Engineering"],
+        "categories": ["Connectivity/6G", "Energy/Power"],
     },
 ]
 
-# 카테고리
+# 10개 카테고리
 CATEGORIES = [
     "Semiconductors",
     "Raw Materials",
