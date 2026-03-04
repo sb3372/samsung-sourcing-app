@@ -1,6 +1,8 @@
+"""
+웹 크롤러 - 50개 웹사이트에서 기사 수집
+"""
 import requests
 from bs4 import BeautifulSoup
-import time
 from typing import List, Dict
 from datetime import datetime
 import logging
@@ -20,63 +22,6 @@ class WebCrawler:
         self.timeout = 10
         self.processed_urls = set()
         self.url_lock = threading.Lock()
-        
-        # 제외할 키워드 (AI/LLM/일반 기술)
-        self.exclude_keywords = [
-            'ai', 'artificial intelligence', 'llm', 'chatgpt', 'openai',
-            'machine learning', 'deep learning', 'neural', 'algorithm',
-            'software', 'cloud', 'data center', 'server',
-            'cryptocurrency', 'blockchain', 'crypto',
-            'startup', 'investment', 'funding', 'venture',
-        ]
-        
-        # 포함할 키워드 (10개 카테고리 관련)
-        self.include_keywords = [
-            # Semiconductors
-            'semiconductor', 'chip', 'processor', 'fab', 'foundry', 'tsmc', 'samsung', 'intel',
-            'processor', 'cpu', 'gpu', 'asic', '5nm', '3nm',
-            # Components
-            'sensor', 'display', 'lcd', 'oled', 'capacitor', 'resistor',
-            # Consumer Electronics
-            'smartphone', 'iphone', 'android', 'tablet', 'smartwatch', 'wearable',
-            # Energy/Power
-            'battery', 'power', 'energy', 'charging', 'electric vehicle', 'ev',
-            # Connectivity
-            '5g', '6g', 'network', 'wifi', 'broadband', 'telecom',
-            # Robotics
-            'robot', 'automation', 'manufacturing',
-            # Photonics
-            'photon', 'quantum', 'laser', 'optical',
-            # Materials
-            'graphene', 'nanotechnology', 'material',
-            # Raw Materials
-            'rare earth', 'lithium', 'cobalt', 'mineral',
-            # Sustainable
-            'recycling', 'e-waste', 'circular economy', 'sustainability',
-        ]
-    
-    def is_valid_article(self, title: str) -> bool:
-        """
-        유효한 기사인지 확인
-        1. AI/LLM 키워드 제외
-        2. 10개 카테고리 관련 키워드 포함
-        """
-        text = title.lower()
-        
-        # 1. 제외 키워드 확인
-        for keyword in self.exclude_keywords:
-            if keyword in text:
-                logger.info(f"⏭️ 제외: {title[:50]}... (키워드: {keyword})")
-                return False
-        
-        # 2. 포함 키워드 확인
-        for keyword in self.include_keywords:
-            if keyword in text:
-                logger.info(f"✅ 포함: {title[:50]}... (키워드: {keyword})")
-                return True
-        
-        logger.info(f"⏭️ 제외: {title[:50]}... (관련 키워드 없음)")
-        return False
     
     def crawl_website(self, website_config: Dict) -> List[Dict]:
         """웹사이트에서 기사 추출"""
@@ -99,7 +44,7 @@ class WebCrawler:
             
             # 기사 요소 찾기
             article_elements = soup.select(website_config['article_selector'])
-            logger.info(f"📰 '{website_config['article_selector']}': {len(article_elements)}개")
+            logger.info(f"📰 {website_config['name']}: {len(article_elements)}개 기사 요소 발견")
             
             if not article_elements:
                 fallback_selectors = [
@@ -110,7 +55,7 @@ class WebCrawler:
                 for selector in fallback_selectors:
                     article_elements = soup.select(selector)
                     if len(article_elements) > 3:
-                        logger.info(f"📰 대체 selector '{selector}': {len(article_elements)}개")
+                        logger.info(f"📰 대체 selector 사용: {selector} ({len(article_elements)}개)")
                         break
             
             if not article_elements:
@@ -118,7 +63,7 @@ class WebCrawler:
                 return []
             
             # 각 기사 추출
-            for article_elem in article_elements[:100]:
+            for article_elem in article_elements[:100]:  # 최대 100개
                 try:
                     # 제목
                     title = None
@@ -141,10 +86,6 @@ class WebCrawler:
                                     break
                     
                     if not title or len(title) < 10:
-                        continue
-                    
-                    # 🔒 유효한 기사인지 확인 (AI/LLM 제외, 10개 카테고리만)
-                    if not self.is_valid_article(title):
                         continue
                     
                     # 링크
@@ -176,33 +117,78 @@ class WebCrawler:
                             continue
                         self.processed_urls.add(link)
                     
-                    # 저장 (categories는 config에서 가져옴)
+                    # 기사 본문 추출
+                    try:
+                        content = self._extract_content(link)
+                    except Exception as e:
+                        logger.debug(f"⚠️ 본문 추출 실패: {str(e)[:50]}")
+                        content = ""
+                    
+                    # 저장
                     article_data = {
-                        'title_en': title,
+                        'title': title,
                         'link': link,
                         'source': website_config['name'],
-                        'categories': website_config['categories'],
+                        'content': content,
                         'crawled_at': datetime.now().isoformat(),
                     }
                     
                     articles.append(article_data)
+                    logger.info(f"✅ 기사 추출: {title[:50]}...")
                 
                 except Exception as e:
-                    logger.debug(f"⚠️ 오류: {str(e)[:50]}")
+                    logger.debug(f"⚠️ 기사 처리 오류: {str(e)[:50]}")
                     continue
             
-            logger.info(f"✅ {website_config['name']}: {len(articles)}개\n")
+            logger.info(f"✅ {website_config['name']}: {len(articles)}개 기사 추출 완료\n")
             return articles
         
         except Exception as e:
             logger.error(f"❌ {website_config['name']}: {str(e)[:100]}")
             return []
     
+    def _extract_content(self, link: str) -> str:
+        """기사 본문 추출"""
+        try:
+            response = requests.get(link, headers=self.headers, timeout=self.timeout)
+            response.encoding = 'utf-8'
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 기사 본문 찾기 (일반적인 selector들)
+            content_selectors = [
+                "article",
+                "div.article-content",
+                "div.post-content",
+                "div.content",
+                "main",
+                "div[class*='content']",
+                "div[class*='article']",
+            ]
+            
+            for selector in content_selectors:
+                elem = soup.select_one(selector)
+                if elem:
+                    text = elem.get_text(strip=True)
+                    if len(text) > 100:
+                        return text[:2000]  # 최대 2000글자
+            
+            # 실패하면 body에서 추출
+            body = soup.find('body')
+            if body:
+                text = body.get_text(strip=True)
+                return text[:2000]
+            
+            return ""
+        
+        except Exception as e:
+            logger.debug(f"⚠️ 본문 추출 오류: {str(e)[:50]}")
+            return ""
+    
     def crawl_all_websites(self, websites: List[Dict], max_workers: int = 10) -> List[Dict]:
-        """모든 웹사이트에서 기사 수집"""
+        """모든 웹사이트에서 기사 수집 (병렬 처리)"""
         all_articles = []
         
-        logger.info(f"🚀 총 {len(websites)}개 웹사이트 병렬 크롤링\n")
+        logger.info(f"🚀 총 {len(websites)}개 웹사이트 병렬 크롤링 시작\n")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_website = {
@@ -217,5 +203,5 @@ class WebCrawler:
                 except Exception as e:
                     logger.error(f"❌ 오류: {str(e)}")
         
-        logger.info(f"📊 총 {len(all_articles)}개 기사 수집\n")
+        logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
         return all_articles
