@@ -121,7 +121,7 @@ def run_crawl(week_offset: int):
     until_date = now - timedelta(days=7 * week_offset)
     since_date = now - timedelta(days=7 * (week_offset + 1))
 
-    with st.spinner(f"⏳ 기사 크롤링 중... (최근 {week_offset+1}주차) Обновите на " ) :
+    with st.spinner(f"⏳ 기사 크롤링 중... (최근 {week_offset + 1}주차)"): 
         articles = crawler.crawl_all(WEBSITES, since_date, until_date)
 
     st.info(f"📰 {len(articles)}개 기사 수집됨")
@@ -131,7 +131,7 @@ def run_crawl(week_offset: int):
         st.session_state.crawled_weeks.add(week_offset)
         return
 
-    with st.spinner("🤖 AI 분류 중... (수 분 소요될 수 있습니다)"):
+    with st.spinner("🤖 AI 분류 중... (수 분 소요될 수 있습니다)"): 
         ai = AIProcessor(api_key)
         processed = ai.process_articles_parallel(articles, max_workers=5)
 
@@ -217,13 +217,6 @@ else:
         if pub:
             meta += f"<span style='color:#888;font-size:0.8rem;margin-left:0.5rem'>{pub}</span>"
         st.markdown(meta, unsafe_allow_html=True)
-
-        summary = article.get("summary", "")
-        if summary:
-            st.markdown(
-                f"<div class='article-summary'>{summary}</div>",
-                unsafe_allow_html=True,
-            )
 
         # 기사 읽음 처리
         db.mark_read(api_key_hash, link)
