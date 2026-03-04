@@ -1,8 +1,11 @@
 name: Daily News Crawl
 
 on:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: '0 17 * * *'  # 매일 밤 2시
+    - cron: '0 17 * * *'  # 매일 밤 2시 (UTC 17:00)
 
 jobs:
   crawl:
@@ -19,3 +22,4 @@ jobs:
       - run: python scheduler.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        timeout-minutes: 60
