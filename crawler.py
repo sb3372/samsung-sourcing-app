@@ -205,3 +205,27 @@ class WebCrawler:
         
         logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
         return all_articles
+
+    def crawl_all_websites_optimized(self, websites: List[Dict], max_workers: int = 10) -> List[Dict]:
+        """모든 웹사이트에서 기사 수집 - 최적화 버전 (병렬 처리)"""
+        all_articles = []
+
+        logger.info(f"🚀 총 {len(websites)}개 웹사이트 최적화 병렬 크롤링 시작\n")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_website = {
+                executor.submit(self.crawl_website, website): website
+                for website in websites
+            }
+
+            for future in as_completed(future_to_website):
+                website = future_to_website[future]
+                try:
+                    articles = future.result()
+                    all_articles.extend(articles)
+                    logger.info(f"✅ {website['name']}: {len(articles)}개 기사 수집")
+                except Exception as e:
+                    logger.error(f"❌ {website['name']} 오류: {str(e)}")
+
+        logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
+        return all_articles
