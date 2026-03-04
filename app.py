@@ -5,7 +5,6 @@ import streamlit as st
 import hashlib
 import logging
 import os
-import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 
@@ -75,7 +74,7 @@ with st.sidebar:
             st.session_state.api_key = raw
 
     st.divider()
-    if st.button("🗑️ DB 초기화"):
+    if st.button("🗑️ DB 초기화_"):
         db.clear_articles()
         st.session_state.current_week = 0
         st.session_state.selected_category = "전체"
@@ -122,16 +121,17 @@ def run_crawl(week_offset: int):
     until_date = now - timedelta(days=7 * week_offset)
     since_date = now - timedelta(days=7 * (week_offset + 1))
 
-    with st.spinner(f"⏳ 기사 크롤링 중... (week {week_offset})"):
+    with st.spinner(f"⏳ 기사 크롤링 중... (최근 {week_offset+1}주차)"):    
         articles = crawler.crawl_all(WEBSITES, since_date, until_date)
-        st.info(f"📰 {len(articles)}개 기사 수집됨")
+
+    st.info(f"📰 {len(articles)}개 기사 수집됨")
 
     if not articles:
         st.warning("수집된 기사가 없습니다.")
         st.session_state.crawled_weeks.add(week_offset)
         return
 
-    with st.spinner("🤖 AI 분류 중..."):
+    with st.spinner("🤖 AI 분류 중... (수 분 소요될 수 있습니다)"):     
         ai = AIProcessor(api_key)
         processed = ai.process_articles_parallel(articles, max_workers=5)
 
@@ -143,12 +143,13 @@ def run_crawl(week_offset: int):
     st.success(f"✅ {len(final)}개 유럽 관련 기사 저장됨")
 
 
-# ── 최초 실행: 필요시 자동 크롤 ──────────────────────────────────────────────
-# 최초 실행: DB에 제대로 분류된 기사가 없으면 자동으로 week_offset=0 크롤 실행
-# (has_properly_categorized_articles: categories가 ["반도체"] 단독 fallback이 아닌 기사가 존재하면 True)
+# ── 최초 실행: DB에 기사가 없으면 버튼으로 크롤 시작 ──────────────────────────
 if not db.has_properly_categorized_articles() and 0 not in st.session_state.crawled_weeks:
-    run_crawl(0)
-    st.rerun()
+    st.info("📭 아직 수집된 기사가 없습니다. 아래 버튼을 눌러 최근 1주일 기사를 불러오세요.")
+    if st.button("🚀 기사 불러오기 (최근 1주일)", type="primary", use_container_width=True):
+        run_crawl(0)
+        st.rerun()
+    st.stop()
 
 
 # ── 기사 로드 및 필터 ────────────────────────────────────────────────────────
@@ -208,7 +209,7 @@ else:
             unsafe_allow_html=True,
         )
 
-        meta = f"<span class='badge-source'>📰 {article.get('source','')}</span>"
+        meta = f"<span class='badge-source'>📰 {article.get("source","")}</span>"
         for cat in article.get("categories", []):
             meta += f"<span class='badge-cat'>📁 {cat}</span>"
         pub = article.get("published_at", "")[:10]
@@ -223,7 +224,7 @@ else:
                 unsafe_allow_html=True,
             )
 
-        # 기사 읽음 처리 (링크 클릭은 새 탭이므로 렌더링 시점에 읽음 처리)
+        # 기사 읽음 처리
         db.mark_read(api_key_hash, link)
 
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
