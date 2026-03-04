@@ -74,7 +74,7 @@ with st.sidebar:
             st.session_state.api_key = raw
 
     st.divider()
-    if st.button("🗑️ DB 초기화_"):
+    if st.button("🗑️ DB 초기화"):
         db.clear_articles()
         st.session_state.current_week = 0
         st.session_state.selected_category = "전체"
@@ -121,7 +121,7 @@ def run_crawl(week_offset: int):
     until_date = now - timedelta(days=7 * week_offset)
     since_date = now - timedelta(days=7 * (week_offset + 1))
 
-    with st.spinner(f"⏳ 기사 크롤링 중... (최근 {week_offset+1}주차)"):    
+    with st.spinner(f"⏳ 기사 크롤링 중... (최근 {week_offset+1}주차) Обновите на " ) :
         articles = crawler.crawl_all(WEBSITES, since_date, until_date)
 
     st.info(f"📰 {len(articles)}개 기사 수집됨")
@@ -131,7 +131,7 @@ def run_crawl(week_offset: int):
         st.session_state.crawled_weeks.add(week_offset)
         return
 
-    with st.spinner("🤖 AI 분류 중... (수 분 소요될 수 있습니다)"):     
+    with st.spinner("🤖 AI 분류 중... (수 분 소요될 수 있습니다)"):
         ai = AIProcessor(api_key)
         processed = ai.process_articles_parallel(articles, max_workers=5)
 
@@ -203,13 +203,14 @@ else:
     for article in page_articles:
         link = article.get("link", "#")
         title = article.get("title", "제목 없음")
+        source = article.get("source", "")
 
         st.markdown(
             f"<div class='article-title'><a href='{link}' target='_blank'>{title}</a></div>",
             unsafe_allow_html=True,
         )
 
-        meta = f"<span class='badge-source'>📰 {article.get("source","")}</span>"
+        meta = f"<span class='badge-source'>📰 {source}</span>"
         for cat in article.get("categories", []):
             meta += f"<span class='badge-cat'>📁 {cat}</span>"
         pub = article.get("published_at", "")[:10]
