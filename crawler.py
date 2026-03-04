@@ -1,231 +1,116 @@
 """
-웹 크롤러 - 50개 웹사이트에서 기사 수집
+웹 크롤러 - RSS 피드 기반 기사 수집
 """
-import requests
+import feedparser
 from bs4 import BeautifulSoup
 from typing import List, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class WebCrawler:
-    def __init__(self):
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-        }
-        self.timeout = 10
-        self.processed_urls = set()
-        self.url_lock = threading.Lock()
-    
-    def crawl_website(self, website_config: Dict) -> List[Dict]:
-        """웹사이트에서 기사 추출"""
-        try:
-            logger.info(f"🔗 크롤링 시작: {website_config['name']}")
-            
-            response = requests.get(
-                website_config['news_page'],
-                headers=self.headers,
-                timeout=self.timeout
-            )
-            response.encoding = 'utf-8'
-            
-            if response.status_code != 200:
-                logger.warning(f"❌ {website_config['name']}: HTTP {response.status_code}")
-                return []
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            articles = []
-            
-            # 기사 요소 찾기
-            article_elements = soup.select(website_config['article_selector'])
-            logger.info(f"📰 {website_config['name']}: {len(article_elements)}개 기사 요소 발견")
-            
-            if not article_elements:
-                fallback_selectors = [
-                    "div.news-item", "div.story", "li.news", "div.article",
-                    "article", "div[class*='article']", "div[class*='news']"
-                ]
-                
-                for selector in fallback_selectors:
-                    article_elements = soup.select(selector)
-                    if len(article_elements) > 3:
-                        logger.info(f"📰 대체 selector 사용: {selector} ({len(article_elements)}개)")
-                        break
-            
-            if not article_elements:
-                logger.warning(f"⚠️ {website_config['name']}: 기사 요소 없음")
-                return []
-            
-            # 각 기사 추출
-            for article_elem in article_elements[:100]:  # 최대 100개
-                try:
-                    # 제목
-                    title = None
-                    title_elem = article_elem.select_one(website_config['title_selector'])
-                    
-                    if title_elem:
-                        title = title_elem.get_text(strip=True)
-                    else:
-                        for tag in article_elem.select("a"):
-                            text = tag.get_text(strip=True)
-                            if len(text) > 10:
-                                title = text
-                                break
-                        
-                        if not title:
-                            for tag in article_elem.select("h2, h3, h1"):
-                                text = tag.get_text(strip=True)
-                                if len(text) > 10:
-                                    title = text
-                                    break
-                    
-                    if not title or len(title) < 10:
-                        continue
-                    
-                    # 링크
-                    link = None
-                    link_elem = article_elem.select_one(website_config['link_selector'])
-                    
-                    if link_elem and link_elem.get('href'):
-                        link = link_elem.get('href')
-                    else:
-                        for tag in article_elem.select("a"):
-                            if tag.get('href'):
-                                link = tag.get('href')
-                                break
-                    
-                    if not link:
-                        continue
-                    
-                    # URL 처리
-                    if link.startswith('/'):
-                        base_url = website_config['url'].rstrip('/')
-                        link = base_url + link
-                    elif not link.startswith('http'):
-                        base_url = website_config['url'].rstrip('/')
-                        link = base_url + '/' + link
-                    
-                    # 중복 확인
-                    with self.url_lock:
-                        if link in self.processed_urls:
-                            continue
-                        self.processed_urls.add(link)
-                    
-                    # 기사 본문 추출
-                    try:
-                        content = self._extract_content(link)
-                    except Exception as e:
-                        logger.debug(f"⚠️ 본문 추출 실패: {str(e)[:50]}")
-                        content = ""
-                    
-                    # 저장
-                    article_data = {
-                        'title': title,
-                        'link': link,
-                        'source': website_config['name'],
-                        'content': content,
-                        'crawled_at': datetime.now().isoformat(),
-                    }
-                    
-                    articles.append(article_data)
-                    logger.info(f"✅ 기사 추출: {title[:50]}...")
-                
-                except Exception as e:
-                    logger.debug(f"⚠️ 기사 처리 오류: {str(e)[:50]}")
-                    continue
-            
-            logger.info(f"✅ {website_config['name']}: {len(articles)}개 기사 추출 완료\n")
-            return articles
-        
-        except Exception as e:
-            logger.error(f"❌ {website_config['name']}: {str(e)[:100]}")
+FETCH_TIMEOUT = 15
+
+
+def _parse_published(entry) -> datetime:
+    """RSS entry에서 published datetime 추출 (UTC-aware)"""
+    for attr in ("published_parsed", "updated_parsed"):
+        t = getattr(entry, attr, None)
+        if t:
+            try:
+                return datetime(*t[:6], tzinfo=timezone.utc)
+            except Exception:
+                pass
+    return datetime.now(timezone.utc)
+
+
+def _strip_html(html: str) -> str:
+    """HTML 태그 제거 후 텍스트 반환"""
+    if not html:
+        return ""
+    try:
+        return BeautifulSoup(html, "html.parser").get_text(separator=" ", strip=True)
+    except Exception:
+        return html
+
+
+def _ensure_utc(dt: datetime) -> datetime:
+    """datetime을 UTC-aware로 변환"""
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def _fetch_feed(website: Dict, since_date: datetime, until_date: datetime) -> List[Dict]:
+    """단일 RSS 피드에서 기사 수집"""
+    name = website["name"]
+    rss_url = website["rss"]
+    articles = []
+    since = _ensure_utc(since_date)
+    until = _ensure_utc(until_date)
+    try:
+        feed = feedparser.parse(rss_url, agent="Mozilla/5.0", request_headers={"Connection": "close"})
+        if feed.get("bozo") and not feed.get("entries"):
+            logger.warning(f"⚠️ {name}: RSS 파싱 오류 (bozo={feed.bozo_exception})")
             return []
-    
-    def _extract_content(self, link: str) -> str:
-        """기사 본문 추출"""
-        try:
-            response = requests.get(link, headers=self.headers, timeout=self.timeout)
-            response.encoding = 'utf-8'
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # 기사 본문 찾기 (일반적인 selector들)
-            content_selectors = [
-                "article",
-                "div.article-content",
-                "div.post-content",
-                "div.content",
-                "main",
-                "div[class*='content']",
-                "div[class*='article']",
-            ]
-            
-            for selector in content_selectors:
-                elem = soup.select_one(selector)
-                if elem:
-                    text = elem.get_text(strip=True)
-                    if len(text) > 100:
-                        return text[:2000]  # 최대 2000글자
-            
-            # 실패하면 body에서 추출
-            body = soup.find('body')
-            if body:
-                text = body.get_text(strip=True)
-                return text[:2000]
-            
-            return ""
-        
-        except Exception as e:
-            logger.debug(f"⚠️ 본문 추출 오류: {str(e)[:50]}")
-            return ""
-    
-    def crawl_all_websites(self, websites: List[Dict], max_workers: int = 10) -> List[Dict]:
-        """모든 웹사이트에서 기사 수집 (병렬 처리)"""
-        all_articles = []
-        
-        logger.info(f"🚀 총 {len(websites)}개 웹사이트 병렬 크롤링 시작\n")
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_website = {
-                executor.submit(self.crawl_website, website): website 
-                for website in websites
-            }
-            
-            for future in as_completed(future_to_website):
-                try:
-                    articles = future.result()
-                    all_articles.extend(articles)
-                except Exception as e:
-                    logger.error(f"❌ 오류: {str(e)}")
-        
-        logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
-        return all_articles
+        for entry in feed.entries:
+            try:
+                pub_dt = _parse_published(entry)
+                if not (since <= pub_dt < until):
+                    continue
+                title = _strip_html(getattr(entry, "title", "")).strip()
+                if not title:
+                    continue
+                link = getattr(entry, "link", "").strip()
+                if not link:
+                    continue
+                # content: summary 또는 description
+                raw_content = (
+                    getattr(entry, "summary", "")
+                    or getattr(entry, "description", "")
+                    or ""
+                )
+                content = _strip_html(raw_content)[:2000]
+                articles.append({
+                    "title": title,
+                    "link": link,
+                    "source": name,
+                    "content": content,
+                    "published_at": pub_dt.isoformat(),
+                    "crawled_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as e:
+                logger.debug(f"⚠️ {name} entry 오류: {e}")
+                continue
+        logger.info(f"✅ {name}: {len(articles)}개 기사 수집")
+    except Exception as e:
+        logger.warning(f"⚠️ {name}: 피드 수집 실패 - {str(e)[:80]}")
+    return articles
 
-    def crawl_all_websites_optimized(self, websites: List[Dict], max_workers: int = 10) -> List[Dict]:
-        """모든 웹사이트에서 기사 수집 - 최적화 버전 (병렬 처리)"""
-        all_articles = []
 
-        logger.info(f"🚀 총 {len(websites)}개 웹사이트 최적화 병렬 크롤링 시작\n")
+def crawl_all(websites: List[Dict], since_date: datetime, until_date: datetime) -> List[Dict]:
+    """모든 RSS 피드에서 기사 병렬 수집 후 URL 중복 제거"""
+    all_articles: List[Dict] = []
+    seen_links: set = set()
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_website = {
-                executor.submit(self.crawl_website, website): website
-                for website in websites
-            }
+    logger.info(f"🚀 {len(websites)}개 사이트 RSS 크롤링 시작 ({since_date.date()} ~ {until_date.date()})")
 
-            for future in as_completed(future_to_website):
-                website = future_to_website[future]
-                try:
-                    articles = future.result()
-                    all_articles.extend(articles)
-                    logger.info(f"✅ {website['name']}: {len(articles)}개 기사 수집")
-                except Exception as e:
-                    logger.error(f"❌ {website['name']} 오류: {str(e)}")
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {
+            executor.submit(_fetch_feed, site, since_date, until_date): site
+            for site in websites
+        }
+        for future in as_completed(futures, timeout=FETCH_TIMEOUT * 2):
+            site = futures[future]
+            try:
+                articles = future.result(timeout=FETCH_TIMEOUT)
+                for a in articles:
+                    if a["link"] not in seen_links:
+                        seen_links.add(a["link"])
+                        all_articles.append(a)
+            except Exception as e:
+                logger.warning(f"⚠️ {site['name']}: {str(e)[:60]}")
 
-        logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료\n")
-        return all_articles
+    logger.info(f"📊 총 {len(all_articles)}개 기사 수집 완료")
+    return all_articles
