@@ -1,8 +1,7 @@
 """
 백그라운드 스케줄러
-- 매일 밤 2시에 자동 실행
-- 50개 사이트 크롤링 + AI 분류 + DB 저장
-- 사용자는 기다리지 않음
+- 첫 실행: 즉시 크롤링
+- 이후: 매일 밤 2시 자동 크롤링
 """
 import schedule
 import time
@@ -20,6 +19,20 @@ logger = logging.getLogger(__name__)
 class NewsScheduler:
     def __init__(self):
         self.crawler = WebCrawler()
+        self.is_first_run = not self._has_articles()
+    
+    def _has_articles(self):
+        """DB에 기사가 있는지 확인"""
+        try:
+            import sqlite3
+            conn = sqlite3.connect("samsung_news.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM cached_articles")
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count > 0
+        except:
+            return False
     
     def run_crawl_job(self):
         """크롤링 작업 실행"""
@@ -39,12 +52,11 @@ class NewsScheduler:
                 logger.warning("⚠️ 크롤링 실패 - 기사 없음")
                 return
             
-            # 2단계: AI 분류 (API Key 필요)
+            # 2단계: AI 분류
             api_key = os.getenv('GEMINI_API_KEY')
             
             if not api_key:
                 logger.warning("⚠️ GEMINI_API_KEY 없음 - 기본값으로 저장")
-                # 기본값으로 저장
                 for article in articles:
                     article['categories'] = ['반도체']
                     article['summary'] = article.get('content', '')[:200]
@@ -57,11 +69,9 @@ class NewsScheduler:
                 ai = AIProcessor(api_key)
                 processed = ai.process_articles_parallel(articles, max_workers=5)
                 
-                # 유럽 관련 기사만 필터
                 valid_articles = [a for a in processed if a.get('is_europe_relevant')]
                 logger.info(f"✅ {len(valid_articles)}개 기사 분류 완료\n")
                 
-                # 3단계: DB 저장
                 logger.info("📖 단계 3: DB에 저장")
                 db.batch_insert_articles(valid_articles, week_range=1)
             
@@ -74,13 +84,16 @@ class NewsScheduler:
     
     def start(self):
         """스케줄러 시작"""
-        logger.info("📅 스케줄러 시작")
+        logger.info("📅 스케줄러 시작\n")
+        
+        # 첫 실행: 즉시 크롤링
+        if self.is_first_run:
+            logger.info("🔴 첫 실행 감지 - 즉시 크롤링 시작!\n")
+            self.run_crawl_job()
         
         # 매일 밤 2시에 실행
         schedule.every().day.at("02:00").do(self.run_crawl_job)
-        
-        # 테스트용: 매 1분마다 실행 (필요시 주석 해제)
-        # schedule.every(1).minutes.do(self.run_crawl_job)
+        logger.info("✅ 매일 밤 2시에 자동 크롤링 예약됨\n")
         
         # 스케줄러 루프
         while True:
