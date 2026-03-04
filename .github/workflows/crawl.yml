@@ -1,0 +1,21 @@
+name: Daily News Crawl
+
+on:
+  schedule:
+    - cron: '0 17 * * *'  # 매일 밤 2시
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      
+      - run: pip install -r requirements.txt
+      
+      - run: python scheduler.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
