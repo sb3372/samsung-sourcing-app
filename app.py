@@ -29,6 +29,8 @@ if "all_articles" not in st.session_state:
     st.session_state.all_articles = []
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
+if "selected_categories" not in st.session_state:
+    st.session_state.selected_categories = CATEGORIES
 
 st.title("📱 Samsung Electronics Europe IPC")
 st.markdown("유럽 기술 뉴스 - AI 기반 분류")
@@ -40,16 +42,19 @@ if not st.session_state.user_id:
     
     col1, col2 = st.columns(2)
     with col1:
-        user_id = st.text_input("사용자 ID")
+        user_id = st.text_input("사용자 ID", placeholder="example@samsung.com")
     with col2:
-        api_key = st.text_input("Gemini API Key (선택)", type="password")
+        api_key = st.text_input("Gemini API Key (선택)", type="password", placeholder="선택사항")
     
     if st.button("로그인", use_container_width=True, type="primary"):
-        if user_id:
-            db.get_or_create_user(user_id, api_key or "")
-            st.session_state.user_id = user_id
-            st.success(f"✅ {user_id}로 로그인했습니다!")
-            st.rerun()
+        if user_id and user_id.strip():
+            success = db.get_or_create_user(user_id.strip(), api_key or "")
+            if success:
+                st.session_state.user_id = user_id.strip()
+                st.success(f"✅ {user_id}로 로그인했습니다!")
+                st.rerun()
+            else:
+                st.error("❌ 로그인 실패 (DB 오류)")
         else:
             st.error("❌ ID를 입력하세요")
 
@@ -57,10 +62,11 @@ else:
     # 로그아웃
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.write(f"👤 {st.session_state.user_id}")
+        st.write(f"👤 **{st.session_state.user_id}**")
     with col2:
         if st.button("로그아웃"):
             st.session_state.user_id = None
+            st.session_state.all_articles = []
             st.rerun()
     
     st.divider()
@@ -72,22 +78,22 @@ else:
         for cat in CATEGORIES:
             if st.checkbox(cat, value=True):
                 selected_categories.append(cat)
+        st.session_state.selected_categories = selected_categories
     
-    # "기사 로드" 버튼 - DB에서 즉시 로드
+    # 기사 로드
     if st.button("📥 기사 로드", use_container_width=True, type="primary"):
-        if not selected_categories:
+        if not st.session_state.selected_categories:
             st.error("❌ 카테고리를 선택하세요")
         else:
-            # DB에서 기사 로드 (1초 안에)
             start = time.time()
             
-            # DB에서 필터링해서 로드
+            # DB에서 로드
             all_articles = db.get_cached_articles_filtered(
-                selected_categories,
+                st.session_state.selected_categories,
                 limit=1000
             )
             
-            # 사용자가 읽은 기사 제외
+            # 읽은 기사 제외
             filtered = [
                 a for a in all_articles
                 if not db.is_read_article(st.session_state.user_id, a['link'])
@@ -97,7 +103,10 @@ else:
             st.session_state.current_page = 0
             
             elapsed = time.time() - start
-            st.success(f"✅ {len(filtered)}개 기사 로드 완료 ({elapsed:.2f}초)")
+            if filtered:
+                st.success(f"✅ {len(filtered)}개 기사 로드 완료 ({elapsed:.2f}초)")
+            else:
+                st.info("ℹ️ 해당하는 기사가 없습니다")
             st.rerun()
     
     st.divider()
@@ -112,15 +121,16 @@ else:
         st.subheader(f"📰 기사 (페이지 {st.session_state.current_page + 1}/{total_pages})")
         
         for idx, article in enumerate(page_articles, 1):
-            st.markdown(f"<div class='article-title'>{start_idx + idx}. {article['title']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='article-title'>{start_idx + idx}. {article.get('title', 'N/A')}</div>", unsafe_allow_html=True)
             
-            meta = f"<div class='article-source'>📰 {article['source']}</div>"
+            meta = f"<div class='article-source'>📰 {article.get('source', 'N/A')}</div>"
             for cat in article.get('categories', []):
-                meta += f"<div class='article-category'>📁 {cat}</div>"
+                if cat.strip():
+                    meta += f"<div class='article-category'>📁 {cat.strip()}</div>"
             st.markdown(meta, unsafe_allow_html=True)
             
-            st.markdown(f"<div class='article-summary'>{article.get('summary', '')}</div>", unsafe_allow_html=True)
-            st.markdown(f"[🔗 원문]({article['link']})")
+            st.markdown(f"<div class='article-summary'>{article.get('summary', '요약 없음')}</div>", unsafe_allow_html=True)
+            st.markdown(f"[🔗 원문]({article.get('link', '#')})")
             
             # 읽음 표시
             db.mark_article_read(st.session_state.user_id, article['link'])
