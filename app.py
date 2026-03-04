@@ -52,11 +52,25 @@ def initialize_db_and_crawl():
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM cached_articles")
         count = cursor.fetchone()[0]
-        conn.close()
-        
         if count > 0:
-            logger.info(f"✅ DB에 이미 {count}개 기사 있음")
-            return True
+            # Check if all articles are stale (all categorized as 반도체 only - the old fallback)
+            cursor.execute("""
+                SELECT COUNT(*) FROM cached_articles 
+                WHERE categories NOT IN ('반도체', '["반도체"]', "['반도체']")
+            """)
+            properly_categorized = cursor.fetchone()[0]
+            if properly_categorized > 0:
+                conn.close()
+                logger.info(f"✅ DB에 이미 {count}개 기사 있음 (정상 분류됨)")
+                return True
+            else:
+                logger.warning("⚠️ 기존 기사가 모두 반도체로만 분류됨 - 재분류 필요")
+                # Clear old stale articles so we re-crawl and re-classify
+                conn.execute("DELETE FROM cached_articles")
+                conn.commit()
+                conn.close()
+        else:
+            conn.close()
     except:
         pass
     
@@ -125,6 +139,23 @@ else:
             st.session_state.current_page = 0
             st.rerun()
     
+    # 사이드바: DB 강제 초기화
+    with st.sidebar:
+        st.markdown("### ⚙️ 관리")
+        if st.button("🗑️ DB 초기화 (강제 재크롤링)", use_container_width=True):
+            try:
+                conn = sqlite3.connect("samsung_news.db")
+                conn.execute("DELETE FROM cached_articles")
+                conn.commit()
+                conn.close()
+                st.session_state.db_initialized = False
+                st.session_state.all_articles = []
+                st.session_state.current_page = 0
+                st.success("✅ DB 초기화 완료! 재시작합니다...")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ 초기화 실패: {e}")
+
     st.divider()
     
     # DB 초기화 + 크롤링 (1회만)
