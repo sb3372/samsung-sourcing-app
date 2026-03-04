@@ -1,202 +1,256 @@
 """
-Streamlit 웹 앱
-- 로그인 → 자동으로 기사 표시
-- DB 초기화 + 크롤링 자동 진행
+Streamlit 웹 앱 - Samsung Electronics Europe IPC
 """
 import streamlit as st
-import time
+import hashlib
 import logging
-from config import CATEGORIES, WEBSITES
-from crawler import WebCrawler
-from ai import AIProcessor
-import db
 import os
-import sqlite3
+import re
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict
+
+from config import CATEGORIES, WEBSITES
+import crawler
+from ai import AIProcessor, _jaccard_similarity
+import db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="Samsung Electronics Europe IPC", page_icon="📱", layout="wide")
+st.set_page_config(
+    page_title="Samsung Electronics Europe IPC",
+    page_icon="📱",
+    layout="wide",
+)
 
 st.markdown("""
-    <style>
-    .article-title { font-size: 1.3rem; font-weight: 600; color: #1e88e5; margin-bottom: 0.5rem; }
-    .article-summary { font-size: 1rem; color: #333; line-height: 1.5; margin-bottom: 1rem; }
-    .article-source { background: #e3f2fd; padding: 0.3rem 0.8rem; border-radius: 4px; display: inline-block; margin-right: 0.5rem; font-size: 0.85rem; }
-    .article-category { background: #1e88e5; color: white; padding: 0.3rem 0.8rem; border-radius: 4px; display: inline-block; margin-right: 0.5rem; font-size: 0.85rem; }
-    .divider { margin: 1.5rem 0; border-top: 1px solid #eee; }
-    </style>
+<style>
+.article-title { font-size: 1.2rem; font-weight: 600; color: #1e88e5; margin-bottom: 0.3rem; }
+.article-summary { font-size: 0.95rem; color: #333; line-height: 1.5; margin-bottom: 0.5rem; }
+.badge-source { background: #e3f2fd; padding: 0.2rem 0.6rem; border-radius: 4px;
+                display: inline-block; margin-right: 0.4rem; font-size: 0.8rem; }
+.badge-cat { background: #1e88e5; color: white; padding: 0.2rem 0.6rem; border-radius: 4px;
+             display: inline-block; margin-right: 0.4rem; font-size: 0.8rem; }
+.divider { margin: 1rem 0; border-top: 1px solid #eee; }
+</style>
 """, unsafe_allow_html=True)
 
-# 세션 초기화
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "all_articles" not in st.session_state:
-    st.session_state.all_articles = []
+# ── DB 초기화 ──────────────────────────────────────────────────────────────
+db.init_db()
+
+# ── 세션 상태 기본값 ────────────────────────────────────────────────────────
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+if "current_week" not in st.session_state:
+    st.session_state.current_week = 0
+if "selected_category" not in st.session_state:
+    st.session_state.selected_category = "전체"
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
-if "db_initialized" not in st.session_state:
-    st.session_state.db_initialized = False
+if "crawled_weeks" not in st.session_state:
+    st.session_state.crawled_weeks = set()
 
+
+# ── 사이드바 ────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.title("⚙️ 설정")
+
+    env_key = os.environ.get("GEMINI_API_KEY", "")
+    try:
+        env_key = env_key or st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        pass
+
+    if env_key:
+        st.session_state.api_key = env_key
+        st.success("✅ API 키 설정됨")
+    else:
+        raw = st.text_input(
+            "🔑 Gemini API Key 입력",
+            type="password",
+            value=st.session_state.api_key,
+            placeholder="AIza...",
+        )
+        if raw:
+            st.session_state.api_key = raw
+
+    st.divider()
+    if st.button("🗑️ DB 초기화"):
+        db.clear_articles()
+        st.session_state.current_week = 0
+        st.session_state.selected_category = "전체"
+        st.session_state.current_page = 0
+        st.session_state.crawled_weeks = set()
+        st.rerun()
+
+
+# ── 메인 헤더 ────────────────────────────────────────────────────────────────
 st.title("📱 Samsung Electronics Europe IPC")
 st.markdown("유럽 기술 뉴스 - AI 기반 분류")
-st.divider()
 
-# ============ DB 초기화 + 크롤링 (자동) ============
-def initialize_db_and_crawl():
-    """DB 초기화 + 크롤링 한 번에 진행"""
-    
-    # DB 파일 확인
-    try:
-        conn = sqlite3.connect("samsung_news.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM cached_articles")
-        count = cursor.fetchone()[0]
-        conn.close()
-        
-        if count > 0:
-            logger.info(f"✅ DB에 이미 {count}개 기사 있음")
-            return True
-    except:
-        pass
-    
-    # DB 초기화
-    logger.info("🔧 DB 초기화 중...")
-    db.init_db()
-    
-    # 크롤링
-    logger.info("🔗 크롤링 시작...")
-    crawler = WebCrawler()
-    articles = crawler.crawl_all_websites_optimized(WEBSITES, max_workers=10)
-    logger.info(f"✅ {len(articles)}개 기사 수집")
-    
+api_key = st.session_state.api_key
+if not api_key:
+    st.warning("API 키를 사이드바에 입력하세요")
+    st.stop()
+
+# API key hash (SHA-256)
+api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+
+
+# ── 유틸: 중복 제거 ──────────────────────────────────────────────────────────
+def deduplicate(new_articles: List[Dict], existing_articles: List[Dict]) -> List[Dict]:
+    final = []
+    all_existing = list(existing_articles)
+    for article in new_articles:
+        is_dup = False
+        for other in all_existing:
+            if _jaccard_similarity(
+                f"{article.get('title','')} {article.get('content','')}",
+                f"{other.get('title','')} {other.get('content','')}",
+            ) >= 0.5:
+                is_dup = True
+                break
+        if not is_dup:
+            final.append(article)
+            all_existing.append(article)
+    return final
+
+
+# ── 크롤 함수 ────────────────────────────────────────────────────────────────
+def run_crawl(week_offset: int):
+    now = datetime.now(timezone.utc)
+    until_date = now - timedelta(days=7 * week_offset)
+    since_date = now - timedelta(days=7 * (week_offset + 1))
+
+    with st.spinner(f"⏳ 기사 크롤링 중... (week {week_offset})"):
+        articles = crawler.crawl_all(WEBSITES, since_date, until_date)
+        st.info(f"📰 {len(articles)}개 기사 수집됨")
+
     if not articles:
-        logger.error("❌ 크롤링 실패")
-        return False
-    
-    # AI 분류
-    api_key = os.getenv('GEMINI_API_KEY')
-    
-    if not api_key:
-        logger.warning("⚠️ GEMINI_API_KEY 없음 - 기본값으로 저장")
-        for article in articles:
-            article['categories'] = ['반도체']
-            article['summary'] = article.get('content', '')[:200]
-            article['companies'] = []
-            article['is_europe_relevant'] = True
-    else:
-        logger.info("🤖 AI 분류 중...")
+        st.warning("수집된 기사가 없습니다.")
+        st.session_state.crawled_weeks.add(week_offset)
+        return
+
+    with st.spinner("🤖 AI 분류 중..."):
         ai = AIProcessor(api_key)
         processed = ai.process_articles_parallel(articles, max_workers=5)
-        articles = [a for a in processed if a.get('is_europe_relevant')]
-    
-    # DB 저장
-    logger.info("💾 DB에 저장 중...")
-    db.batch_insert_articles(articles, week_range=1)
-    logger.info(f"✅ {len(articles)}개 기사 저장 완료")
-    
-    return True
 
-# ============ 로그인 ============
-if not st.session_state.user_id:
-    st.subheader("🔑 로그인")
-    
-    user_id = st.text_input("사용자 ID", placeholder="example@samsung.com")
-    
-    if st.button("로그인", use_container_width=True, type="primary"):
-        if user_id and user_id.strip():
-            db.get_or_create_user(user_id.strip(), "")
-            st.session_state.user_id = user_id.strip()
-            st.success(f"✅ {user_id}로 로그인했습니다!")
-            st.rerun()
-        else:
-            st.error("❌ ID를 입력하세요")
+    europe_articles = [a for a in processed if a.get("is_europe_relevant")]
+    existing = db.get_articles(week_offset)
+    final = deduplicate(europe_articles, existing)
+    db.insert_articles(final, week_offset)
+    st.session_state.crawled_weeks.add(week_offset)
+    st.success(f"✅ {len(final)}개 유럽 관련 기사 저장됨")
 
-# ============ 로그인 후: 기사 표시 ============
-else:
-    # 로그아웃
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.write(f"👤 **{st.session_state.user_id}**")
-    with col2:
-        if st.button("로그아웃"):
-            st.session_state.user_id = None
-            st.session_state.all_articles = []
+
+# ── 최초 실행: 필요시 자동 크롤 ──────────────────────────────────────────────
+# 최초 실행: DB에 제대로 분류된 기사가 없으면 자동으로 week_offset=0 크롤 실행
+# (has_properly_categorized_articles: categories가 ["반도체"] 단독 fallback이 아닌 기사가 존재하면 True)
+if not db.has_properly_categorized_articles() and 0 not in st.session_state.crawled_weeks:
+    run_crawl(0)
+    st.rerun()
+
+
+# ── 기사 로드 및 필터 ────────────────────────────────────────────────────────
+max_week = st.session_state.current_week
+all_articles: List[Dict] = []
+for w in range(max_week + 1):
+    all_articles.extend(db.get_articles(w))
+
+# 읽은 기사 제외
+read_links = db.get_read_links(api_key_hash)
+all_articles = [a for a in all_articles if a["link"] not in read_links]
+
+# 카테고리 필터 버튼
+col_buttons = st.columns([1] + [2] * len(CATEGORIES))
+with col_buttons[0]:
+    if st.button("전체", use_container_width=True,
+                 type="primary" if st.session_state.selected_category == "전체" else "secondary"):
+        st.session_state.selected_category = "전체"
+        st.session_state.current_page = 0
+        st.rerun()
+
+for i, cat in enumerate(CATEGORIES):
+    with col_buttons[i + 1]:
+        btn_type = "primary" if st.session_state.selected_category == cat else "secondary"
+        if st.button(cat, use_container_width=True, type=btn_type):
+            st.session_state.selected_category = cat
             st.session_state.current_page = 0
             st.rerun()
-    
-    st.divider()
-    
-    # DB 초기화 + 크롤링 (1회만)
-    if not st.session_state.db_initialized:
-        with st.spinner("⏳ DB 초기화 + 기사 로딩 중... (처음 1회만 시간이 걸립니다)"):
-            success = initialize_db_and_crawl()
-            st.session_state.db_initialized = True
-        
-        if success:
+
+# 카테고리 필터 적용
+selected = st.session_state.selected_category
+if selected != "전체":
+    filtered_articles = [a for a in all_articles if selected in a.get("categories", [])]
+else:
+    filtered_articles = all_articles
+
+# ── 페이지네이션 ─────────────────────────────────────────────────────────────
+PAGE_SIZE = 10
+total = len(filtered_articles)
+total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+current_page = min(st.session_state.current_page, total_pages - 1)
+
+st.markdown(f"**총 {total}개 기사** · 페이지 {current_page + 1}/{total_pages}")
+
+start = current_page * PAGE_SIZE
+page_articles = filtered_articles[start: start + PAGE_SIZE]
+
+if not page_articles:
+    st.info("📥 표시할 기사가 없습니다.")
+else:
+    for article in page_articles:
+        link = article.get("link", "#")
+        title = article.get("title", "제목 없음")
+
+        st.markdown(
+            f"<div class='article-title'><a href='{link}' target='_blank'>{title}</a></div>",
+            unsafe_allow_html=True,
+        )
+
+        meta = f"<span class='badge-source'>📰 {article.get('source','')}</span>"
+        for cat in article.get("categories", []):
+            meta += f"<span class='badge-cat'>📁 {cat}</span>"
+        pub = article.get("published_at", "")[:10]
+        if pub:
+            meta += f"<span style='color:#888;font-size:0.8rem;margin-left:0.5rem'>{pub}</span>"
+        st.markdown(meta, unsafe_allow_html=True)
+
+        summary = article.get("summary", "")
+        if summary:
+            st.markdown(
+                f"<div class='article-summary'>{summary}</div>",
+                unsafe_allow_html=True,
+            )
+
+        # 기사 읽음 처리 (링크 클릭은 새 탭이므로 렌더링 시점에 읽음 처리)
+        db.mark_read(api_key_hash, link)
+
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+# ── 페이지 이동 버튼 ──────────────────────────────────────────────────────────
+col_prev, col_next = st.columns(2)
+with col_prev:
+    if current_page > 0:
+        if st.button("⬅️ 이전"):
+            st.session_state.current_page = current_page - 1
             st.rerun()
-        else:
-            st.error("❌ DB 초기화 실패")
-    
-    # 기사 로드
-    if not st.session_state.all_articles:
-        all_articles = db.get_cached_articles_filtered(CATEGORIES, limit=1000)
-        filtered = [
-            a for a in all_articles
-            if not db.is_read_article(st.session_state.user_id, a['link'])
-        ]
-        st.session_state.all_articles = filtered
-    
-    # 기사 표시
-    if st.session_state.all_articles:
-        start_idx = st.session_state.current_page * 10
-        end_idx = start_idx + 10
-        page_articles = st.session_state.all_articles[start_idx:end_idx]
-        
-        total_pages = (len(st.session_state.all_articles) + 9) // 10
-        st.subheader(f"📰 기사 (페이지 {st.session_state.current_page + 1}/{total_pages}) - 총 {len(st.session_state.all_articles)}개")
-        
-        for idx, article in enumerate(page_articles, 1):
-            # 제목
-            st.markdown(
-                f"<div class='article-title'>{start_idx + idx}. {article.get('title', 'N/A')}</div>",
-                unsafe_allow_html=True
-            )
-            
-            # 메타정보
-            meta_html = f"<div class='article-source'>📰 {article.get('source', 'N/A')}</div>"
-            for cat in article.get('categories', []):
-                if cat.strip():
-                    meta_html += f"<div class='article-category'>📁 {cat.strip()}</div>"
-            st.markdown(meta_html, unsafe_allow_html=True)
-            
-            # 요약
-            st.markdown(
-                f"<div class='article-summary'>{article.get('summary', '요약 없음')}</div>",
-                unsafe_allow_html=True
-            )
-            
-            # 링크
-            st.markdown(f"[🔗 원문 읽기]({article.get('link', '#')})")
-            
-            # 읽음 표시
-            db.mark_article_read(st.session_state.user_id, article['link'])
-            
-            st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-        
-        # 페이지네이션
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.session_state.current_page > 0:
-                if st.button("⬅️ 이전"):
-                    st.session_state.current_page -= 1
-                    st.rerun()
-        
-        with col2:
-            if end_idx < len(st.session_state.all_articles):
-                if st.button("다음 ➡️"):
-                    st.session_state.current_page += 1
-                    st.rerun()
-    
-    else:
-        st.info("📥 기사를 로딩 중입니다...")
+
+with col_next:
+    if current_page < total_pages - 1:
+        if st.button("다음 ➡️"):
+            st.session_state.current_page = current_page + 1
+            st.rerun()
+
+# ── 마지막 페이지에 "1주일 더 로딩" 버튼 ────────────────────────────────────
+is_last_page = current_page == total_pages - 1
+is_last_week = max_week == db.get_max_week_offset()
+
+if is_last_page and is_last_week:
+    st.divider()
+    if st.button("📅 1주일 더 로딩"):
+        next_week = max_week + 1
+        st.session_state.current_week = next_week
+        run_crawl(next_week)
+        st.session_state.current_page = 0
+        st.rerun()
