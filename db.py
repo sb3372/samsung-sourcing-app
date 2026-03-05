@@ -203,22 +203,15 @@ def article_count() -> int:
 
 
 def has_properly_categorized_articles() -> bool:
-    """반도체 단독이 아닌 카테고리로 분류된 기사가 있는지 확인"""
+    """AI로 제대로 분류된 기사(카테고리가 1개 이상)가 있는지 확인"""
     try:
         conn = _connect()
         cursor = conn.cursor()
-        cursor.execute("SELECT categories FROM articles")
-        rows = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM articles WHERE categories != '[]' AND categories IS NOT NULL AND categories != ''")
+        result = cursor.fetchone()
         conn.close()
-        for row in rows:
-            cats = json.loads(row[0]) if row[0] else []
-            if cats and cats != ["반도체"]:
-                return True
-        return False
+        return (result[0] if result else 0) > 0
     except Exception:
         return False
 
 
-# DB 초기화 (파일 없으면 자동 생성)
-if not os.path.exists(DB_FILE):
-    init_db()
