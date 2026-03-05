@@ -30,7 +30,7 @@ def _jaccard_similarity(text1: str, text2: str) -> float:
 class AIProcessor:
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.model = genai.GenerativeModel("gemini-2.0-flash")
 
     def _process_single(self, article: Dict) -> Dict:
         """단일 기사를 Gemini로 분류·요약"""

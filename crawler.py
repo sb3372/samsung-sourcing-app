@@ -3,20 +3,19 @@
 """
 import feedparser
 from bs4 import BeautifulSoup
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime, timezone
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-FETCH_TIMEOUT = 15
+FETCH_TIMEOUT = 20
 
 
-def _parse_published(entry) -> datetime:
-    """RSS entry에서 published datetime 추출 (UTC-aware)"""
+def _parse_published(entry) -> Optional[datetime]:
+    """RSS entry에서 published datetime 추출 (UTC-aware). 없으면 None 반환."""
     for attr in ("published_parsed", "updated_parsed"):
         t = getattr(entry, attr, None)
         if t:
@@ -24,7 +23,7 @@ def _parse_published(entry) -> datetime:
                 return datetime(*t[:6], tzinfo=timezone.utc)
             except Exception:
                 pass
-    return datetime.now(timezone.utc)
+    return None
 
 
 def _strip_html(html: str) -> str:
@@ -42,30 +41,35 @@ def _ensure_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
-def _fetch_feed(website: Dict, since_date: datetime, until_date: datetime) -> List[Dict]:
+def _fetch_feed(website: Dict, since_date: Optional[datetime], until_date: Optional[datetime]) -> List[Dict]:
     """단일 RSS 피드에서 기사 수집"""
     name = website["name"]
     rss_url = website["rss"]
     articles = []
-    since = _ensure_utc(since_date)
-    until = _ensure_utc(until_date)
+    since = _ensure_utc(since_date) if since_date else None
+    until = _ensure_utc(until_date) if until_date else None
     try:
-        feed = feedparser.parse(rss_url, agent="Mozilla/5.0", request_headers={"Connection": "close"})
+        feed = feedparser.parse(
+            rss_url,
+            agent="Mozilla/5.0 (compatible; SamsungIPC/1.0)",
+            request_headers={"Connection": "close"},
+        )
         if feed.get("bozo") and not feed.get("entries"):
-            logger.warning(f"⚠️ {name}: RSS 파싱 오류 (bozo={feed.bozo_exception})")
+            logger.warning(f"⚠️ {name}: RSS 파싱 오류")
             return []
         for entry in feed.entries:
             try:
                 pub_dt = _parse_published(entry)
-                if not (since <= pub_dt < until):
-                    continue
+                # 날짜 필터: pub_dt가 있는 경우에만 범위 체크
+                if pub_dt is not None and since is not None and until is not None:
+                    if not (since <= pub_dt < until):
+                        continue
                 title = _strip_html(getattr(entry, "title", "")).strip()
                 if not title:
                     continue
                 link = getattr(entry, "link", "").strip()
                 if not link:
                     continue
-                # content: summary 또는 description
                 raw_content = (
                     getattr(entry, "summary", "")
                     or getattr(entry, "description", "")
@@ -77,7 +81,7 @@ def _fetch_feed(website: Dict, since_date: datetime, until_date: datetime) -> Li
                     "link": link,
                     "source": name,
                     "content": content,
-                    "published_at": pub_dt.isoformat(),
+                    "published_at": pub_dt.isoformat() if pub_dt else "",
                     "crawled_at": datetime.now(timezone.utc).isoformat(),
                 })
             except Exception as e:
@@ -89,19 +93,22 @@ def _fetch_feed(website: Dict, since_date: datetime, until_date: datetime) -> Li
     return articles
 
 
-def crawl_all(websites: List[Dict], since_date: datetime, until_date: datetime) -> List[Dict]:
+def crawl_all(websites: List[Dict], since_date: Optional[datetime] = None, until_date: Optional[datetime] = None) -> List[Dict]:
     """모든 RSS 피드에서 기사 병렬 수집 후 URL 중복 제거"""
     all_articles: List[Dict] = []
     seen_links: set = set()
 
-    logger.info(f"🚀 {len(websites)}개 사이트 RSS 크롤링 시작 ({since_date.date()} ~ {until_date.date()})")
+    date_range = ""
+    if since_date and until_date:
+        date_range = f" ({since_date.date()} ~ {until_date.date()})"
+    logger.info(f"🚀 {len(websites)}개 사이트 RSS 크롤링 시작{date_range}")
 
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = {
             executor.submit(_fetch_feed, site, since_date, until_date): site
             for site in websites
         }
-        for future in as_completed(futures, timeout=FETCH_TIMEOUT * 2):
+        for future in as_completed(futures):
             site = futures[future]
             try:
                 articles = future.result(timeout=FETCH_TIMEOUT)
